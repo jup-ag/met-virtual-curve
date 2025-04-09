@@ -11,6 +11,12 @@ use crate::{
 
 /// Create config
 #[event]
+pub struct EvtCreateConfigMetadata {
+    pub config_metadata: Pubkey,
+    pub fee_claimer: Pubkey,
+}
+/// Create config
+#[event]
 pub struct EvtCreateConfig {
     pub config: Pubkey,
     pub quote_mint: Pubkey,

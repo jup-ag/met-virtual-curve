@@ -103,4 +103,5 @@ pub mod seeds {
     pub const CLAIM_FEE_OPERATOR_PREFIX: &[u8] = b"cf_operator";
     pub const METEORA_METADATA_PREFIX: &[u8] = b"meteora";
     pub const DAMM_V2_METADATA_PREFIX: &[u8] = b"damm_v2";
+    pub const CONFIG_METADATA_PREFIX: &[u8] = b"c_metadata";
 }

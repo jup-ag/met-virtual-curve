@@ -1,4 +1,4 @@
-import { Keypair, PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { Keypair, PublicKey, SystemProgram, TransactionInstruction } from "@solana/web3.js";
 import { BN } from "@coral-xyz/anchor";
 import { VirtualCurveProgram } from "../utils/types";
 import { BanksClient } from "solana-bankrun";
@@ -9,8 +9,9 @@ import {
   unwrapSOLInstruction,
   getTokenAccount,
   deriveMigrationMetadataAddress,
+  deriveConfigMetadata,
 } from "../utils";
-import { getConfig, getVirtualPool } from "../utils/fetcher";
+import { getConfig, getConfigMetadata, getVirtualPool } from "../utils/fetcher";
 import { expect } from "chai";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
@@ -100,6 +101,47 @@ export async function createConfig(
   return config.publicKey;
 }
 
+export async function createConfigMetadata(
+  banksClient: BanksClient,
+  program: VirtualCurveProgram,
+  params: {
+    name: string,
+    website: string,
+    logo: string,
+    feeClaimer: Keypair,
+    payer: Keypair
+
+  }
+) {
+  const { payer, feeClaimer, name, website, logo } = params;
+  const configMetadata = deriveConfigMetadata(feeClaimer.publicKey);
+  const transaction = await program.methods
+    .createConfigMetadata({
+      padding: new Array(48).fill(0),
+      name,
+      website,
+      logo,
+    })
+    .accountsPartial({
+      configMetadata,
+      feeClaimer: feeClaimer.publicKey,
+      payer: payer.publicKey,
+      systemProgram: SystemProgram.programId,
+    })
+    .transaction();
+
+  transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
+  transaction.sign(payer, feeClaimer);
+
+  await processTransactionMaybeThrow(banksClient, transaction);
+  //
+  const configMetadataState = await getConfigMetadata(banksClient, program, configMetadata);
+  // TODO add assertion data fields
+  expect(configMetadataState.feeClaimer.toString()).equal(feeClaimer.publicKey.toString());
+  expect(configMetadataState.name.toString()).equal(name.toString());
+  expect(configMetadataState.website.toString()).equal(website.toString());
+  expect(configMetadataState.logo.toString()).equal(logo.toString());
+}
 export type ClaimTradeFeeParams = {
   feeClaimer: Keypair;
   pool: PublicKey;

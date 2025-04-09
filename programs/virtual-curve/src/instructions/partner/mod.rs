@@ -4,3 +4,5 @@ pub mod ix_create_config;
 pub use ix_create_config::*;
 pub mod ix_withdraw_partner_surplus;
 pub use ix_withdraw_partner_surplus::*;
+pub mod ix_create_config_metadata;
+pub use ix_create_config_metadata::*;

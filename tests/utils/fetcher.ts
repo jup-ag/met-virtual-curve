@@ -5,6 +5,7 @@ import {
   MeteoraDammMigrationMetadata,
   Pool,
   PoolConfig,
+  PoolConfigMetadata,
   VirtualCurveProgram,
 } from "./types";
 
@@ -27,6 +28,15 @@ export async function getConfig(
 ): Promise<PoolConfig> {
   const account = await banksClient.getAccount(config);
   return program.coder.accounts.decode("poolConfig", Buffer.from(account.data));
+}
+
+export async function getConfigMetadata(
+  banksClient: BanksClient,
+  program: VirtualCurveProgram,
+  configMetadata: PublicKey
+): Promise<PoolConfigMetadata> {
+  const account = await banksClient.getAccount(configMetadata);
+  return program.coder.accounts.decode("poolConfigMetadata", Buffer.from(account.data));
 }
 
 export async function getClaimFeeOperator(
