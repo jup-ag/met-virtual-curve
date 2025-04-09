@@ -50,11 +50,11 @@ pub mod virtual_curve {
     }
 
     /// PARTNER FUNCTIONS ////
-    pub fn create_config_metadata(
-        ctx: Context<CreateConfigMetadataCtx>,
-        metadata: CreateConfigMetadataParameters,
+    pub fn create_partner_metadata(
+        ctx: Context<CreatePartnerMetadataCtx>,
+        metadata: CreatePartnerMetadataParameters,
     ) -> Result<()> {
-        instructions::handle_create_config_metadata(ctx, metadata)
+        instructions::handle_create_partner_metadata(ctx, metadata)
     }
     pub fn create_config(
         ctx: Context<CreateConfigCtx>,

@@ -9,9 +9,9 @@ import {
   unwrapSOLInstruction,
   getTokenAccount,
   deriveMigrationMetadataAddress,
-  deriveConfigMetadata,
+  derivePartnerMetadata,
 } from "../utils";
-import { getConfig, getConfigMetadata, getVirtualPool } from "../utils/fetcher";
+import { getConfig, getPartnerMetadata, getVirtualPool } from "../utils/fetcher";
 import { expect } from "chai";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
@@ -101,7 +101,7 @@ export async function createConfig(
   return config.publicKey;
 }
 
-export async function createConfigMetadata(
+export async function createPartnerMetadata(
   banksClient: BanksClient,
   program: VirtualCurveProgram,
   params: {
@@ -114,16 +114,16 @@ export async function createConfigMetadata(
   }
 ) {
   const { payer, feeClaimer, name, website, logo } = params;
-  const configMetadata = deriveConfigMetadata(feeClaimer.publicKey);
+  const partnerMetadata = derivePartnerMetadata(feeClaimer.publicKey);
   const transaction = await program.methods
-    .createConfigMetadata({
+    .createPartnerMetadata({
       padding: new Array(48).fill(0),
       name,
       website,
       logo,
     })
     .accountsPartial({
-      configMetadata,
+      partnerMetadata,
       feeClaimer: feeClaimer.publicKey,
       payer: payer.publicKey,
       systemProgram: SystemProgram.programId,
@@ -135,12 +135,12 @@ export async function createConfigMetadata(
 
   await processTransactionMaybeThrow(banksClient, transaction);
   //
-  const configMetadataState = await getConfigMetadata(banksClient, program, configMetadata);
+  const metadataState = await getPartnerMetadata(banksClient, program, partnerMetadata);
   // TODO add assertion data fields
-  expect(configMetadataState.feeClaimer.toString()).equal(feeClaimer.publicKey.toString());
-  expect(configMetadataState.name.toString()).equal(name.toString());
-  expect(configMetadataState.website.toString()).equal(website.toString());
-  expect(configMetadataState.logo.toString()).equal(logo.toString());
+  expect(metadataState.feeClaimer.toString()).equal(feeClaimer.publicKey.toString());
+  expect(metadataState.name.toString()).equal(name.toString());
+  expect(metadataState.website.toString()).equal(website.toString());
+  expect(metadataState.logo.toString()).equal(logo.toString());
 }
 export type ClaimTradeFeeParams = {
   feeClaimer: Keypair;

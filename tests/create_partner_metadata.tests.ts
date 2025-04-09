@@ -1,15 +1,15 @@
 import { ProgramTestContext } from "solana-bankrun";
 import {
-    createConfigMetadata,
+    createPartnerMetadata,
 } from "./instructions";
-import { Pool, VirtualCurveProgram } from "./utils/types";
-import { Keypair, PublicKey } from "@solana/web3.js";
-import { fundSol, startTest } from "./utils";
+import { VirtualCurveProgram } from "./utils/types";
+import { Keypair } from "@solana/web3.js";
+import { startTest } from "./utils";
 import {
     createVirtualCurveProgram,
 } from "./utils";
 
-describe("Create config metadata", () => {
+describe("Create partner metadata", () => {
     let context: ProgramTestContext;
     let partner: Keypair;
     let user: Keypair;
@@ -22,8 +22,8 @@ describe("Create config metadata", () => {
         program = createVirtualCurveProgram();
     });
 
-    it("Partner create a config metadata", async () => {
-        await createConfigMetadata(
+    it("Partner create a metadata", async () => {
+        await createPartnerMetadata(
             context.banksClient,
             program,
             {

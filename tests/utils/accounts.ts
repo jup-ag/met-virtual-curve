@@ -45,9 +45,9 @@ export function derivePoolAuthority(): PublicKey {
 }
 
 
-export function deriveConfigMetadata(feeClaimer: PublicKey): PublicKey {
+export function derivePartnerMetadata(feeClaimer: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
-    [Buffer.from("c_metadata"), feeClaimer.toBuffer()],
+    [Buffer.from("partner_metadata"), feeClaimer.toBuffer()],
     VIRTUAL_CURVE_PROGRAM_ID
   )[0];
 }

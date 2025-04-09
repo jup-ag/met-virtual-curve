@@ -1,9 +1,9 @@
 use crate::*;
 
-/// Metadata about an config.
+/// Metadata for a partner.
 #[account]
 #[derive(Debug, Default)]
-pub struct PoolConfigMetadata {
+pub struct PartnerMetadata {
     /// fee claimer
     pub fee_claimer: Pubkey,
     /// padding for future use
@@ -16,9 +16,9 @@ pub struct PoolConfigMetadata {
     pub logo: String,
 }
 
-impl PoolConfigMetadata {
-    /// Space that a [EscrowMetadata] takes up.
-    pub fn space(metadata: &CreateConfigMetadataParameters) -> usize {
+impl PartnerMetadata {
+    /// Space that a [PartnerMetadata] takes up.
+    pub fn space(metadata: &CreatePartnerMetadataParameters) -> usize {
         std::mem::size_of::<Pubkey>()
             + 16 * 6
             + 4
