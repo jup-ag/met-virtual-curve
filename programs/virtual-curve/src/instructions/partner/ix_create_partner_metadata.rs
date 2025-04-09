@@ -16,7 +16,7 @@ pub struct CreatePartnerMetadataParameters {
 #[derive(Accounts)]
 #[instruction(metadata: CreatePartnerMetadataParameters)]
 pub struct CreatePartnerMetadataCtx<'info> {
-    /// Config metadata
+    /// Partner metadata
     #[account(
         init,
         seeds = [
@@ -28,7 +28,7 @@ pub struct CreatePartnerMetadataCtx<'info> {
         space = 8 + PartnerMetadata::space(&metadata)
     )]
     pub partner_metadata: Box<Account<'info, PartnerMetadata>>,
-    /// Payer of the config metadata.
+    /// Payer of the partner metadata.
     #[account(mut)]
     pub payer: Signer<'info>,
     /// Fee claimer for partner

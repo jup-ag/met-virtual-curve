@@ -136,7 +136,6 @@ export async function createPartnerMetadata(
   await processTransactionMaybeThrow(banksClient, transaction);
   //
   const metadataState = await getPartnerMetadata(banksClient, program, partnerMetadata);
-  // TODO add assertion data fields
   expect(metadataState.feeClaimer.toString()).equal(feeClaimer.publicKey.toString());
   expect(metadataState.name.toString()).equal(name.toString());
   expect(metadataState.website.toString()).equal(website.toString());
