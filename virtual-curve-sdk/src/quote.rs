@@ -4,6 +4,7 @@ use virtual_curve::{
     params::swap::TradeDirection,
     state::{fee::FeeMode, PoolConfig, SwapResult, VirtualPool},
 };
+use solana_sdk::pubkey::Pubkey;
 
 pub fn quote_exact_in(
     virtual_pool: &VirtualPool,
@@ -47,3 +48,35 @@ pub fn quote_exact_in(
 
     Ok(swap_result)
 }
+
+
+pub fn get_fee_mint(
+    config: &PoolConfig,
+    virtual_pool: &VirtualPool,
+    swap_base_for_quote: bool,
+    has_referral: bool,
+) -> Result<Pubkey> {
+    let trade_direction = if swap_base_for_quote {
+        TradeDirection::BaseToQuote
+    } else {
+        TradeDirection::QuoteToBase
+    };
+
+    // Calculate the fee mode based on config, direction, and referral
+    let fee_mode = FeeMode::get_fee_mode(
+        config.collect_fee_mode,
+        trade_direction,
+        has_referral,
+    )
+    .context("Failed to determine fee mode")?; // Use anyhow::Context for error handling
+
+    // Determine the fee mint based on the fee mode
+    let fee_mint = if fee_mode.fees_on_base_token {
+        virtual_pool.base_mint
+    } else {
+        config.quote_mint // Quote mint is stored in the config
+    };
+
+    Ok(fee_mint)
+}
+
