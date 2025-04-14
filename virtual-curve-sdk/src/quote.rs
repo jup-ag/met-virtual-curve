@@ -1,10 +1,10 @@
 use anyhow::{ensure, Context, Result};
+use solana_sdk::pubkey::Pubkey;
 use virtual_curve::{
     activation_handler::ActivationType,
     params::swap::TradeDirection,
-    state::{fee::FeeMode, PoolConfig, SwapResult, VirtualPool},
+    state::{fee::FeeMode, PoolConfig, PoolFeesConfig, VirtualPool, SwapResult},
 };
-use solana_sdk::pubkey::Pubkey;
 
 pub fn quote_exact_in(
     virtual_pool: &VirtualPool,
@@ -44,11 +44,12 @@ pub fn quote_exact_in(
         fee_mode,
         trade_direction,
         current_point,
+        virtual_pool.activation_point,
+        &virtual_pool.volatility_tracker,
     )?;
 
     Ok(swap_result)
 }
-
 
 pub fn get_fee_mint(
     config: &PoolConfig,
@@ -63,12 +64,8 @@ pub fn get_fee_mint(
     };
 
     // Calculate the fee mode based on config, direction, and referral
-    let fee_mode = FeeMode::get_fee_mode(
-        config.collect_fee_mode,
-        trade_direction,
-        has_referral,
-    )
-    .context("Failed to determine fee mode")?; // Use anyhow::Context for error handling
+    let fee_mode = FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)
+        .context("Failed to determine fee mode")?; // Use anyhow::Context for error handling
 
     // Determine the fee mint based on the fee mode
     let fee_mint = if fee_mode.fees_on_base_token {
@@ -79,4 +76,3 @@ pub fn get_fee_mint(
 
     Ok(fee_mint)
 }
-

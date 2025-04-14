@@ -137,8 +137,15 @@ pub fn handle_swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> 
     let current_point = get_current_point(config.activation_type)?;
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
-    let swap_result =
-        pool.get_swap_result(&config, amount_in, fee_mode, trade_direction, current_point)?;
+    let swap_result = pool.get_swap_result(
+        &config,
+        amount_in,
+        fee_mode,
+        trade_direction,
+        current_point,
+        pool.activation_point,
+        &pool.volatility_tracker,
+    )?;
 
     require!(
         swap_result.output_amount >= minimum_amount_out,
