@@ -3,7 +3,7 @@ use solana_sdk::pubkey::Pubkey;
 use virtual_curve::{
     activation_handler::ActivationType,
     params::swap::TradeDirection,
-    state::{fee::FeeMode, PoolConfig, PoolFeesConfig, VirtualPool, SwapResult},
+    state::{fee::FeeMode, PoolConfig, SwapResult, VirtualPool},
 };
 
 pub fn quote_exact_in(
@@ -15,8 +15,6 @@ pub fn quote_exact_in(
     transfer_fee_excluded_amount_in: u64, // must be calculated from outside
     has_referral: bool,
 ) -> Result<SwapResult> {
-    let mut virtual_pool = *virtual_pool;
-
     ensure!(
         !virtual_pool.is_curve_complete(config.migration_quote_threshold),
         "virtual pool is completed"
@@ -24,7 +22,16 @@ pub fn quote_exact_in(
 
     ensure!(transfer_fee_excluded_amount_in > 0, "amount is zero");
 
-    virtual_pool.update_pre_swap(config, current_timestamp)?;
+    // virtual_pool.update_pre_swap(config, current_timestamp)?;
+    let mut volatility_tracker = virtual_pool.volatility_tracker;
+    if config.pool_fees.dynamic_fee.is_dynamic_fee_enable() {
+        volatility_tracker.update_references(
+            &config.pool_fees.dynamic_fee,
+            virtual_pool.sqrt_price,
+            current_timestamp,
+        )?;
+    }
+
     let activation_type =
         ActivationType::try_from(config.activation_type).context("invalid activation type")?;
     let current_point = match activation_type {
@@ -45,7 +52,7 @@ pub fn quote_exact_in(
         trade_direction,
         current_point,
         virtual_pool.activation_point,
-        &virtual_pool.volatility_tracker,
+        &volatility_tracker,
     )?;
 
     Ok(swap_result)
