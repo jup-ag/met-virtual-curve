@@ -22,7 +22,6 @@ pub fn quote_exact_in(
 
     ensure!(transfer_fee_excluded_amount_in > 0, "amount is zero");
 
-    // virtual_pool.update_pre_swap(config, current_timestamp)?;
     let mut volatility_tracker = virtual_pool.volatility_tracker;
     if config.pool_fees.dynamic_fee.is_dynamic_fee_enable() {
         volatility_tracker.update_references(
