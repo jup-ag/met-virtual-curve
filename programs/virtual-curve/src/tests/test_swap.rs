@@ -86,6 +86,8 @@ fn test_swap() {
             &fee_mode,
             TradeDirection::QuoteToBase,
             0,
+            pool.activation_point,
+            &pool.volatility_tracker,
         )
         .unwrap();
     println!("{:?}", result);
