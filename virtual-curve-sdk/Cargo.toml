@@ -12,5 +12,5 @@ name = "virtual_curve_sdk"
 
 [dependencies]
 anyhow = "1.0.71"
-virtual-curve = { path = "../programs/virtual-curve" }
+virtual-curve = { path = "../programs/virtual-curve", features = ["no-entrypoint"] }
 solana-sdk = "2.1.0"
