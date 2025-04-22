@@ -1,8 +1,6 @@
 use static_assertions::const_assert;
 
-/// refer raydium clmm
 pub const MIN_SQRT_PRICE: u128 = 4295048016;
-/// refer raydium clmm
 pub const MAX_SQRT_PRICE: u128 = 79226673521066979257578248091;
 
 pub const BASIS_POINT_MAX: u64 = 10_000;
@@ -24,42 +22,9 @@ const_assert!(MAX_CURVE_POINT <= MAX_CURVE_POINT_CONFIG);
 
 pub const SWAP_BUFFER_PERCENTAGE: u8 = 25; // 25%
 
-pub const PARTNER_SURPLUS_SHARE: u8 = 90; // 90 %
+pub const PARTNER_SURPLUS_SHARE: u8 = 80; // 80 %
 
-pub mod activation {
-    #[cfg(not(feature = "local"))]
-    pub const SLOT_BUFFER: u64 = 9000; // 1 slot = 400 mls => 1 hour
-    #[cfg(feature = "local")]
-    pub const SLOT_BUFFER: u64 = 5;
-
-    #[cfg(not(feature = "local"))]
-    pub const TIME_BUFFER: u64 = 3600; // 1 hour
-    #[cfg(feature = "local")]
-    pub const TIME_BUFFER: u64 = 5; // 5 secs
-
-    #[cfg(not(feature = "local"))]
-    pub const MAX_ACTIVATION_SLOT_DURATION: u64 = SLOT_BUFFER * 24 * 31; // 31 days
-    #[cfg(feature = "local")]
-    pub const MAX_ACTIVATION_SLOT_DURATION: u64 = 30;
-
-    #[cfg(not(feature = "local"))]
-    pub const MAX_ACTIVATION_TIME_DURATION: u64 = TIME_BUFFER * 24 * 31; // 31 days
-    #[cfg(feature = "local")]
-    pub const MAX_ACTIVATION_TIME_DURATION: u64 = 30;
-
-    pub const MAX_VESTING_SLOT_DURATION: u64 = SLOT_BUFFER * 24 * 365 * 10; // 10 years
-    pub const MAX_VESTING_TIME_DURATION: u64 = TIME_BUFFER * 24 * 365 * 10; // 10 years
-
-    pub const FIVE_MINUTES_SLOT_BUFFER: u64 = SLOT_BUFFER / 12; // 5 minutes
-
-    pub const FIVE_MINUTES_TIME_BUFFER: u64 = TIME_BUFFER / 12; // 5 minutes
-
-    pub const MAX_FEE_CURVE_TIME_DURATION: u64 = 3600 * 24; // 1 day
-    pub const MAX_FEE_CURVE_SLOT_DURATION: u64 = 9000 * 24; // 1 day
-
-    pub const MAX_HIGH_TAX_TIME_DURATION: u64 = TIME_BUFFER / 6; // 10 minutes
-    pub const MAX_HIGH_TAX_SLOT_DURATION: u64 = SLOT_BUFFER / 6; // 10 minutes
-}
+pub const MAX_SWALLOW_PERCENTAGE: u8 = 20; // 20 %
 
 /// Store constants related to fees
 pub mod fee {
@@ -90,8 +55,6 @@ pub mod fee {
     pub const PROTOCOL_FEE_PERCENT: u8 = 20; // 20%
 
     pub const HOST_FEE_PERCENT: u8 = 20; // 20%
-
-    pub const MEME_MIN_FEE_UPDATE_WINDOW_DURATION: i64 = 60 * 30; // 30 minutes
 }
 
 pub mod seeds {

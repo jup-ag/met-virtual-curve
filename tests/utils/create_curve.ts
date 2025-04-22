@@ -1,31 +1,9 @@
-import BN, { BN } from "bn.js";
-import { BanksClient, ProgramTestContext, start } from "solana-bankrun";
+import BN from "bn.js";
+import { ConfigParameters, LiquidityDistributionParameters } from "../instructions";
 import Decimal from "decimal.js";
-import {
-    ConfigParameters,
-    createConfig,
-    CreateConfigParams,
-    createLocker,
-    createMeteoraMetadata,
-    createPoolWithSplToken,
-    LiquidityDistributionParameters,
-    MigrateMeteoraParams,
-    migrateToMeteoraDamm,
-    swap,
-    SwapParams,
-} from "./instructions";
-import { VirtualCurveProgram } from "./utils/types";
-import { Keypair, PublicKey } from "@solana/web3.js";
-import { createDammConfig, fundSol, getMint, startTest } from "./utils";
-import {
-    createVirtualCurveProgram,
-    derivePoolAuthority,
-    MAX_SQRT_PRICE,
-} from "./utils";
-import { getConfig, getVirtualPool } from "./utils/fetcher";
+import { MAX_SQRT_PRICE } from "./constants";
 
-import { expect } from "chai";
-import { createToken, mintSplTokenTo } from "./utils/token";
+
 
 function getDeltaAmountBase(lowerSqrtPrice: BN, upperSqrtPrice: BN, liquidity: BN): BN {
     let numerator = liquidity.mul(upperSqrtPrice.sub(lowerSqrtPrice));
@@ -96,7 +74,7 @@ export const getPriceFromSqrtPrice = (
     return price;
 };
 
-function designPumfunCurve(
+export function designCurve(
     totalTokenSupply: number,
     percentageSupplyOnMigration: number,
     percentageSupplyVesting: number,
@@ -186,7 +164,7 @@ function designPumfunCurve(
 
 
 
-function designPumfunCurveWihoutLockVesting(
+export function designCurveWihoutLockVesting(
     totalTokenSupply: number,
     percentageSupplyOnMigration: number,
     startPrice: Decimal,
@@ -262,207 +240,4 @@ function designPumfunCurveWihoutLockVesting(
         curve: curves,
     };
     return instructionParams;
-}
-
-describe("Design pumpfun curve", () => {
-    let context: ProgramTestContext;
-    let admin: Keypair;
-    let operator: Keypair;
-    let partner: Keypair;
-    let user: Keypair;
-    let poolCreator: Keypair;
-    let program: VirtualCurveProgram;
-
-    before(async () => {
-        context = await startTest();
-        admin = context.payer;
-        operator = Keypair.generate();
-        partner = Keypair.generate();
-        user = Keypair.generate();
-        poolCreator = Keypair.generate();
-        const receivers = [
-            operator.publicKey,
-            partner.publicKey,
-            user.publicKey,
-            poolCreator.publicKey,
-        ];
-        await fundSol(context.banksClient, admin, receivers);
-        program = createVirtualCurveProgram();
-
-
-
-    });
-
-    it("Design pumpfun curve with lock vesting", async () => {
-        let totalTokenSupply = 1_000_000_000; // 1 billion
-        let percentageSupplyOnMigration = 10; // 10%;
-        let percentageSupplyVesting = 40; // 40%
-        let frequency = 3600; // each 1 hour
-        let numberOfPeriod = 100;
-        let startPrice = new Decimal("0.0005"); // 500k market cap
-        let migrationPrice = new Decimal("0.005"); // 5M market cap
-        let tokenBaseDecimal = 6;
-        let tokenQuoteDecimal = 9;
-        let quoteMint = await createToken(context.banksClient, admin, admin.publicKey, tokenQuoteDecimal);
-        let instructionParams = designPumfunCurve(
-            totalTokenSupply,
-            percentageSupplyOnMigration,
-            percentageSupplyVesting,
-            frequency,
-            numberOfPeriod,
-            startPrice,
-            migrationPrice,
-            tokenBaseDecimal,
-            tokenQuoteDecimal,
-        );
-        const params: CreateConfigParams = {
-            payer: partner,
-            leftoverReceiver: partner.publicKey,
-            feeClaimer: partner.publicKey,
-            quoteMint,
-            instructionParams,
-        };
-        let config = await createConfig(context.banksClient, program, params);
-        await mintSplTokenTo(context.banksClient, user, quoteMint, admin, user.publicKey, instructionParams.migrationQuoteThreshold.toNumber());
-        await fullFlow(context.banksClient, program, config, poolCreator, user, admin, quoteMint);
-    });
-
-    it("Design pumpfun curve without lock vesting with leftover", async () => {
-        /// NOTE, this case with have leftover, 
-        // because percentageSupplyOnMigration and migrationPrice is fixed -> migrationQuoteThreshold is fixed
-        // startPrice is fixed, migrationPrice is fixed and migrationQuoteThreshold is fixed -> swapAmount is fixed
-        let totalTokenSupply = 1_000_000_000; // 1 billion
-        let percentageSupplyOnMigration = 10; // 10%;
-        let percentageSupplyVesting = 0; // 40%
-        let frequency = 0; // each 1 hour
-        let numberOfPeriod = 0;
-        let startPrice = new Decimal("0.0005"); // 500k market cap
-        let migrationPrice = new Decimal("0.005"); // 5M market cap
-        let tokenBaseDecimal = 6;
-        let tokenQuoteDecimal = 9;
-        let quoteMint = await createToken(context.banksClient, admin, admin.publicKey, tokenQuoteDecimal);
-        let instructionParams = designPumfunCurve(
-            totalTokenSupply,
-            percentageSupplyOnMigration,
-            percentageSupplyVesting,
-            frequency,
-            numberOfPeriod,
-            startPrice,
-            migrationPrice,
-            tokenBaseDecimal,
-            tokenQuoteDecimal,
-        );
-        const params: CreateConfigParams = {
-            payer: partner,
-            leftoverReceiver: partner.publicKey,
-            feeClaimer: partner.publicKey,
-            quoteMint,
-            instructionParams,
-        };
-        let config = await createConfig(context.banksClient, program, params);
-        await mintSplTokenTo(context.banksClient, user, quoteMint, admin, user.publicKey, instructionParams.migrationQuoteThreshold.toNumber());
-        await fullFlow(context.banksClient, program, config, poolCreator, user, admin, quoteMint);
-    });
-
-
-    it("Design pumpfun curve without leftover", async () => {
-        let totalTokenSupply = 1_000_000_000; // 1 billion
-        let percentageSupplyOnMigration = 10; // 10%;
-        let startPrice = new Decimal("0.0005"); // 500k market cap
-        let tokenBaseDecimal = 6;
-        let tokenQuoteDecimal = 9;
-        let quoteMint = await createToken(context.banksClient, admin, admin.publicKey, tokenQuoteDecimal);
-        let instructionParams = designPumfunCurveWihoutLockVesting(
-            totalTokenSupply,
-            percentageSupplyOnMigration,
-            startPrice,
-            tokenBaseDecimal,
-            tokenQuoteDecimal,
-        );
-        const params: CreateConfigParams = {
-            payer: partner,
-            leftoverReceiver: partner.publicKey,
-            feeClaimer: partner.publicKey,
-            quoteMint,
-            instructionParams,
-        };
-        let config = await createConfig(context.banksClient, program, params);
-        await mintSplTokenTo(context.banksClient, user, quoteMint, admin, user.publicKey, instructionParams.migrationQuoteThreshold.toNumber());
-        await fullFlow(context.banksClient, program, config, poolCreator, user, admin, quoteMint);
-    });
-});
-
-
-async function fullFlow(
-    banksClient: BanksClient,
-    program: VirtualCurveProgram,
-    config: PublicKey,
-    poolCreator: Keypair,
-    user: Keypair,
-    admin: Keypair,
-    quoteMint: PublicKey,
-) {
-    // create pool
-    let virtualPool = await createPoolWithSplToken(banksClient, program, {
-        payer: poolCreator,
-        quoteMint,
-        config,
-        instructionParams: {
-            name: "test token spl",
-            symbol: "TEST",
-            uri: "abc.com",
-        },
-    });
-    let virtualPoolState = await getVirtualPool(
-        banksClient,
-        program,
-        virtualPool
-    );
-
-    let configState = await getConfig(banksClient, program, config);
-
-    // swap
-    const params: SwapParams = {
-        config,
-        payer: user,
-        pool: virtualPool,
-        inputTokenMint: quoteMint,
-        outputTokenMint: virtualPoolState.baseMint,
-        amountIn: configState.migrationQuoteThreshold,
-        minimumAmountOut: new BN(0),
-        referralTokenAccount: null,
-    };
-    await swap(banksClient, program, params);
-
-    // migrate
-    const poolAuthority = derivePoolAuthority();
-    let dammConfig = await createDammConfig(
-        banksClient,
-        admin,
-        poolAuthority
-    );
-    const migrationParams: MigrateMeteoraParams = {
-        payer: admin,
-        virtualPool,
-        dammConfig,
-    };
-    await createMeteoraMetadata(banksClient, program, {
-        payer: admin,
-        virtualPool,
-        config,
-    });
-
-    if (configState.lockedVestingConfig.frequency.toNumber() != 0) {
-        await createLocker(banksClient, program, {
-            payer: admin,
-            virtualPool,
-        });
-    }
-    await migrateToMeteoraDamm(banksClient, program, migrationParams);
-    const baseMintData = (
-        await getMint(banksClient, virtualPoolState.baseMint)
-    );
-
-    expect(baseMintData.supply.toString()).eq(configState.postMigrationTokenSupply.toString());
-
 }

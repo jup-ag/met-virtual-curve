@@ -12,7 +12,7 @@ import {
 } from "../utils";
 import { getConfig, getPartnerMetadata, getVirtualPool } from "../utils/fetcher";
 import { expect } from "chai";
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { NATIVE_MINT, TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
 export type BaseFee = {
   cliffFeeNumerator: BN;
@@ -269,9 +269,11 @@ export async function partnerWithdrawSurplus(
 
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
-  const unrapSOLIx = unwrapSOLInstruction(feeClaimer.publicKey);
+  if (quoteMintInfo.mint == NATIVE_MINT) {
+    const unrapSOLIx = unwrapSOLInstruction(feeClaimer.publicKey);
+    unrapSOLIx && postInstructions.push(unrapSOLIx);
+  }
 
-  unrapSOLIx && postInstructions.push(unrapSOLIx);
   const transaction = await program.methods
     .partnerWithdrawSurplus()
     .accountsPartial({

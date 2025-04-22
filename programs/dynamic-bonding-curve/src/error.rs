@@ -103,4 +103,7 @@ pub enum PoolError {
 
     #[msg("Invalid leftover address")]
     InvalidLeftoverAddress,
+
+    #[msg("Swap amount is over a threshold")]
+    SwapAmountIsOverAThreshold,
 }

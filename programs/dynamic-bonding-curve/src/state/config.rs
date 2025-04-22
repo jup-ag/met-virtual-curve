@@ -6,7 +6,7 @@ use static_assertions::const_assert_eq;
 use crate::{
     constants::{
         fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
-        MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
+        MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, MAX_SWALLOW_PERCENTAGE, SWAP_BUFFER_PERCENTAGE,
     },
     fee_math::get_fee_in_period,
     params::{
@@ -470,16 +470,8 @@ impl PoolConfig {
         self.pre_migration_token_supply = pre_migration_token_supply;
         self.post_migration_token_supply = post_migration_token_supply;
 
-        let curve_length = curve.len();
-        for i in 0..MAX_CURVE_POINT_CONFIG {
-            if i < curve_length {
-                self.curve[i] = curve[i].to_liquidity_distribution_config();
-            } else {
-                self.curve[i] = LiquidityDistributionConfig {
-                    sqrt_price: MAX_SQRT_PRICE, // set max
-                    liquidity: 0,
-                }
-            }
+        for i in 0..curve.len() {
+            self.curve[i] = curve[i].to_liquidity_distribution_config();
         }
     }
 
@@ -612,6 +604,16 @@ impl PoolConfig {
                 locked_liquidity: creator_locked_lp,
             },
         })
+    }
+
+    pub fn get_max_swallow_quote_amount(&self) -> Result<u64> {
+        let max_swallow_amount = safe_mul_div_cast_u64(
+            self.migration_quote_threshold,
+            MAX_SWALLOW_PERCENTAGE.into(),
+            100,
+            Rounding::Down,
+        )?;
+        Ok(max_swallow_amount)
     }
 }
 
