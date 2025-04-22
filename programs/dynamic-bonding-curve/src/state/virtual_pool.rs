@@ -195,6 +195,8 @@ impl VirtualPool {
         fee_mode: &FeeMode,
         trade_direction: TradeDirection,
         current_point: u64,
+        activation_point: u64,
+        volatility_tracker: &VolatilityTracker,
     ) -> Result<SwapResult> {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
@@ -258,6 +260,12 @@ impl VirtualPool {
             amount
         };
 
+        let fee_numerator = config.pool_fees.get_total_trading_fee(
+            volatility_tracker,
+            current_point,
+            activation_point,
+        )?;
+
         Ok(SwapResult {
             actual_input_amount: actual_amount_in,
             output_amount: actual_amount_out,
@@ -265,6 +273,7 @@ impl VirtualPool {
             trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
+            fee_numerator,
         })
     }
 
@@ -422,6 +431,7 @@ impl VirtualPool {
             protocol_fee,
             trading_fee,
             referral_fee,
+            fee_numerator,
         } = swap_result;
 
         let old_sqrt_price = self.sqrt_price;
@@ -579,6 +589,7 @@ pub struct SwapResult {
     pub trading_fee: u64,
     pub protocol_fee: u64,
     pub referral_fee: u64,
+    pub fee_numerator: u64,
 }
 
 pub struct SwapAmount {
