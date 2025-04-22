@@ -8,8 +8,9 @@ import { startAnchor } from "solana-bankrun";
 import {
   DAMM_PROGRAM_ID,
   DAMM_V2_PROGRAM_ID,
+  DYNAMIC_BONDING_CURVE_PROGRAM_ID,
+  LOCKER_PROGRAM_ID,
   VAULT_PROGRAM_ID,
-  VIRTUAL_CURVE_PROGRAM_ID,
 } from "./constants";
 import { METAPLEX_PROGRAM_ID } from ".";
 import {
@@ -63,8 +64,8 @@ export async function startTest() {
     "./",
     [
       {
-        name: "virtual_curve",
-        programId: new PublicKey(VIRTUAL_CURVE_PROGRAM_ID),
+        name: "dynamic_bonding_curve",
+        programId: new PublicKey(DYNAMIC_BONDING_CURVE_PROGRAM_ID),
       },
       {
         name: "metaplex",
@@ -81,6 +82,10 @@ export async function startTest() {
       {
         name: "damm_v2",
         programId: new PublicKey(DAMM_V2_PROGRAM_ID),
+      },
+      {
+        name: "locker",
+        programId: new PublicKey(LOCKER_PROGRAM_ID),
       },
     ],
     [

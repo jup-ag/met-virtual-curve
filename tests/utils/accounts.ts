@@ -6,7 +6,7 @@ import {
   DAMM_V2_PROGRAM_ID,
   METAPLEX_PROGRAM_ID,
   VAULT_PROGRAM_ID,
-  VIRTUAL_CURVE_PROGRAM_ID,
+  DYNAMIC_BONDING_CURVE_PROGRAM_ID,
 } from "./constants";
 import { VAULT_BASE_KEY } from "./";
 
@@ -40,7 +40,15 @@ export function deriveMetadatAccount(mint: PublicKey): PublicKey {
 export function derivePoolAuthority(): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("pool_authority")],
-    VIRTUAL_CURVE_PROGRAM_ID
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
+  )[0];
+}
+
+
+export function deriveBaseKeyForLocker(virtualPool: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("base_locker"), virtualPool.toBuffer()],
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
   )[0];
 }
 
@@ -48,7 +56,16 @@ export function derivePoolAuthority(): PublicKey {
 export function derivePartnerMetadata(feeClaimer: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("partner_metadata"), feeClaimer.toBuffer()],
-    VIRTUAL_CURVE_PROGRAM_ID
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
+  )[0];
+}
+
+
+
+export function deriveVirtualPoolMetadata(pool: PublicKey): PublicKey {
+  return PublicKey.findProgramAddressSync(
+    [Buffer.from("virtual_pool_metadata"), pool.toBuffer()],
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
   )[0];
 }
 
@@ -56,7 +73,7 @@ export function derivePartnerMetadata(feeClaimer: PublicKey): PublicKey {
 export function deriveConfigAddress(index: BN): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("config"), index.toArrayLike(Buffer, "le", 8)],
-    VIRTUAL_CURVE_PROGRAM_ID
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
   )[0];
 }
 
@@ -72,7 +89,7 @@ export function derivePoolAddress(
       getFirstKey(tokenAMint, tokenBMint),
       getSecondKey(tokenAMint, tokenBMint),
     ],
-    VIRTUAL_CURVE_PROGRAM_ID
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
   )[0];
 }
 
@@ -115,14 +132,14 @@ export function deriveTokenVaultAddress(
 ): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("token_vault"), tokenMint.toBuffer(), pool.toBuffer()],
-    VIRTUAL_CURVE_PROGRAM_ID
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
   )[0];
 }
 
 export function deriveClaimFeeOperatorAddress(operator: PublicKey): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("cf_operator"), operator.toBuffer()],
-    VIRTUAL_CURVE_PROGRAM_ID
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
   )[0];
 }
 
@@ -177,7 +194,7 @@ export function deriveMigrationMetadataAddress(
 ): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("meteora"), virtual_pool.toBuffer()],
-    VIRTUAL_CURVE_PROGRAM_ID
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
   )[0];
 }
 
@@ -187,6 +204,6 @@ export function deriveMigrationDammV2MetadataAddress(
 ): PublicKey {
   return PublicKey.findProgramAddressSync(
     [Buffer.from("damm_v2"), virtual_pool.toBuffer()],
-    VIRTUAL_CURVE_PROGRAM_ID
+    DYNAMIC_BONDING_CURVE_PROGRAM_ID
   )[0];
 }

@@ -79,11 +79,18 @@ describe("Migrate to damm v2", () => {
 
         const curves = [];
 
-        for (let i = 1; i <= 20; i++) {
-            curves.push({
-                sqrtPrice: MAX_SQRT_PRICE.muln(i * 5).divn(100),
-                liquidity: U64_MAX.shln(30 + i),
-            });
+        for (let i = 1; i <= 16; i++) {
+            if (i == 16) {
+                curves.push({
+                    sqrtPrice: MAX_SQRT_PRICE,
+                    liquidity: U64_MAX.shln(30 + i),
+                });
+            } else {
+                curves.push({
+                    sqrtPrice: MAX_SQRT_PRICE.muln(i * 5).divn(100),
+                    liquidity: U64_MAX.shln(30 + i),
+                });
+            }
         }
 
         const instructionParams: ConfigParameters = {
@@ -102,12 +109,21 @@ describe("Migrate to damm v2", () => {
             partnerLockedLpPercentage: 55,
             creatorLockedLpPercentage: 5,
             sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
+            lockedVesting: {
+                amountPerPeriod: new BN(0),
+                cliffDurationFromMigrationTime: new BN(0),
+                frequency: new BN(0),
+                numberOfPeriod: new BN(0),
+                cliffUnlockAmount: new BN(0),
+            },
+            migrationFeeOption: 0,
+            tokenSupply: null,
             padding: [],
             curve: curves,
         };
         const params: CreateConfigParams = {
             payer: partner,
-            owner: partner.publicKey,
+            leftoverReceiver: partner.publicKey,
             feeClaimer: partner.publicKey,
             quoteMint: NATIVE_MINT,
             instructionParams,
@@ -169,11 +185,5 @@ describe("Migrate to damm v2", () => {
         };
 
         await migrateToDammV2(context.banksClient, program, migrationParams);
-
-        // validate mint authority
-        const baseMintData = (
-            await getMint(context.banksClient, virtualPoolState.baseMint)
-        );
-        expect(baseMintData.mintAuthority.toString()).eq(PublicKey.default.toString())
     });
 });

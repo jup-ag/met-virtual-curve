@@ -35,7 +35,7 @@ describe("Simulate CU swap", () => {
 
   it("Simulate CU Swap", async () => {
     const result = [];
-    for (let curve_size = 1; curve_size <= 20; curve_size++) {
+    for (let curve_size = 1; curve_size <= 16; curve_size++) {
       let curves = [];
       for (let i = 1; i <= curve_size; i++) {
         curves.push({
@@ -70,12 +70,21 @@ describe("Simulate CU swap", () => {
         partnerLockedLpPercentage: 95,
         creatorLockedLpPercentage: 5,
         sqrtStartPrice: MIN_SQRT_PRICE,
+        lockedVesting: {
+          amountPerPeriod: new BN(0),
+          cliffDurationFromMigrationTime: new BN(0),
+          frequency: new BN(0),
+          numberOfPeriod: new BN(0),
+          cliffUnlockAmount: new BN(0),
+        },
+        migrationFeeOption: 0,
+        tokenSupply: null,
         padding: [],
         curve: curves,
       };
       const createConfigParams: CreateConfigParams = {
         payer: user,
-        owner: user.publicKey,
+        leftoverReceiver: user.publicKey,
         feeClaimer: user.publicKey,
         quoteMint: NATIVE_MINT,
         instructionParams,

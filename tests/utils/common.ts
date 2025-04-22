@@ -17,8 +17,8 @@ import {
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
 
-import { VirtualCurve } from "../../target/types/virtual_curve";
-import VirtualCurveIDL from "../../target/idl/virtual_curve.json";
+import { DynamicBondingCurve as VirtualCurve } from "../../target/types/dynamic_bonding_curve";
+import VirtualCurveIDL from "../../target/idl/dynamic_bonding_curve.json";
 
 import VaultIDL from "../../idls/dynamic_vault.json";
 import { DynamicVault as Vault } from "./idl/dynamic_vault";
@@ -43,7 +43,12 @@ import {
   Transaction,
   TransactionInstruction,
 } from "@solana/web3.js";
-import { DAMM_PROGRAM_ID, DAMM_V2_PROGRAM_ID, MAX_SQRT_PRICE, MIN_SQRT_PRICE } from "./constants";
+import {
+  DAMM_PROGRAM_ID,
+  DAMM_V2_PROGRAM_ID,
+  MAX_SQRT_PRICE,
+  MIN_SQRT_PRICE,
+} from "./constants";
 import { BanksClient } from "solana-bankrun";
 import { ADMIN_USDC_ATA, LOCAL_ADMIN_KEYPAIR, USDC } from "./bankrun";
 
@@ -241,7 +246,7 @@ export async function createInitializePermissionlessDynamicVaultIx(
 
   const ix = await program.methods
     .initialize()
-    .accounts({
+    .accountsPartial({
       vault: vaultKey,
       tokenVault: tokenVaultKey,
       tokenMint: mint,
@@ -308,7 +313,7 @@ export async function createDammConfig(
 ): Promise<PublicKey> {
   const program = createDammProgram();
   const params = {
-    tradeFeeNumerator: new BN(1_000),
+    tradeFeeNumerator: new BN(250),
     protocolTradeFeeNumerator: new BN(10),
     activationDuration: new BN(0),
     vaultConfigKey: PublicKey.default,
@@ -321,6 +326,12 @@ export async function createDammConfig(
     [Buffer.from("config"), params.index.toBuffer("le", 8)],
     DAMM_PROGRAM_ID
   );
+
+  const account = await banksClient.getAccount(config);
+  if (account) {
+    return config;
+  }
+
   const transaction = await program.methods
     .createConfig(params)
     .accounts({
@@ -336,7 +347,6 @@ export async function createDammConfig(
 
   return config;
 }
-
 
 export async function createDammV2Config(
   banksClient: BanksClient,
@@ -398,7 +408,7 @@ export async function createLockEscrowIx(
 
   const transaction = await program.methods
     .createLockEscrow()
-    .accounts({
+    .accountsPartial({
       pool,
       lpMint,
       owner: escrowOwner,

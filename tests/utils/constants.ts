@@ -1,8 +1,8 @@
 import { BN } from "@coral-xyz/anchor";
 import { PublicKey } from "@solana/web3.js";
 
-export const VIRTUAL_CURVE_PROGRAM_ID = new PublicKey(
-  "2grmPSxKzQBhRrTRjWazVtMkRGFbFaqLakxGEZfnXB5u"
+export const DYNAMIC_BONDING_CURVE_PROGRAM_ID = new PublicKey(
+  "virEFLZsQm1iFAs8py1XnziJ67gTzW2bfCWhxNPfccD"
 );
 
 export const METAPLEX_PROGRAM_ID = new PublicKey(
@@ -22,7 +22,11 @@ export const DAMM_V2_PROGRAM_ID = new PublicKey(
 );
 
 export const TREASURY = new PublicKey(
-  "BJQbRiRWhJCyTYZcAuAL3ngDCx3AyFQGKDq8zhiZAKUw"
+  "4EWqcx3aNZmMetCnxwLYwyNjan6XLGp3Ca2W316vrSjv"
+);
+
+export const LOCKER_PROGRAM_ID = new PublicKey(
+  "LocpQgucEQHbqNABEYvBvwoxCPsSbG91A1QaQhQQqjn"
 );
 
 export const BASIS_POINT_MAX = 10_000;

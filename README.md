@@ -1,8 +1,8 @@
 > The program is still in the process of being audited.
 
-# Virtual Curve
+# Dynamic Bonding Curve
 
-The Virtual Curve program is a launch pool protocol that allows any launch partners to enable their users to launch tokens with customizable virtual curves directly on their platforms. With direct integration into Jupiter and other trading platforms, traders can trade these launch tokens immediately across all these integrations. The Virtual Cuvre program provides a few benefits:
+The Dynamic Bonding Curve program is a launch pool protocol that allows any launch partners to enable their users to launch tokens with customizable virtual curves directly on their platforms. With direct integration into Jupiter and other trading platforms, traders can trade these launch tokens immediately across all these integrations. The Virtual Cuvre program provides a few benefits:
 
 - Launch partners can have different configurations for their launch pools, for example, customizable quote token (SOL/USDC/etc), customizable curve for token graduation, customizable fees, etc.
 - Users on these launch platforms can easily create tokens and launch pools directly with the partners' configurations directly on their partners' UI.
@@ -21,7 +21,7 @@ The Virtual Curve program is a launch pool protocol that allows any launch partn
 ## Customizable Fees
 
 - Virtual pool will collect trading fee evey time user trade with that pool (buy or sell).
-- A percentage of trading fee will be paid to the Virtual Curve protocol. A swap host (Jupiter/Photon/Trading bots) can submit the swap transaction with a referal account to get some referal fee as part of protocol fee. The rest of trading fee belongs to partner.
+- A percentage of trading fee will be paid to the Dynamic Bonding Curve protocol. A swap host (Jupiter/Photon/Trading bots) can submit the swap transaction with a referal account to get some referal fee as part of protocol fee. The rest of trading fee belongs to partner.
 - After token has graduated and is migrated, LP is locked for partner and token creator. The ratio of the locked LP is based on what partner has configured in the configuration. With this, partner and token creator can claim fees based on the locked LP on Meteora DAMM.
 - The last swap will create a surplus on quote token, that will be shared between the partner and the protocol.
 
@@ -43,6 +43,9 @@ Partner can specify these parameters when they create a configuration on all the
 - `fee_claimer`: the address of partner that can claim trading fees from the virtual pools as well as fees from the locked LPs.
 - `owner`: owner of the configuration.
 - `quote_mint`: the quote mint address that virtual pool will support.
+- `locked_vesting`: locked vesting for creator after token is migrated (token will be migrated to [Jup lock](https://lock.jup.ag/))
+- `migration_fee_option`: allow partner to choose a fee option on graduated pool (currently support 0.25% | 0.3% | 1% | 2%)
+- `token_supply`: when the fields are specified, token will have fixed supply in pre and post migration, leftover will be returned to leftover_receiver (configured in config key)
 - `sqrt_start_price`: square root of min price in the bonding curve for the virtual pools.
 - `curve`: an array of square price and liquidity, that defines the liquidity distribution for the virtual pools.
 
@@ -52,7 +55,7 @@ A simple constant product `x * y = virtual_base_reserve * virtual_curve_reserve`
 
 `bonding_curve_constant_product = function(l, pa, pb)`
 
-On our virtual curve protocol:
+On our dynamic bonding curve protocol:
 
 `bonding_curve = function([l_i, pa_i, pb_i])`
 
@@ -78,7 +81,7 @@ Then the bonding curve will function of 2 price ranges: `(l = 100, pa = 1, pb = 
 Program
 
 ```
-anchor build -p virtual_curve
+anchor build -p dynamic_bonding_curve
 ```
 
 ### Test
@@ -88,7 +91,22 @@ pnpm install
 pnpm test
 ```
 
-## Program Address
+### Program Address
 
 - Mainnet-beta: virEFLZsQm1iFAs8py1XnziJ67gTzW2bfCWhxNPfccD
 - Devnet: virEFLZsQm1iFAs8py1XnziJ67gTzW2bfCWhxNPfccD
+
+
+### Config key for migration 
+
+#### Meteora damm (v1):
+- migration_fee_option == 0: EtwbXRxV8b46Vkho5EhMshi9qEU7xv6sMQnPHK3fX8WR
+- migration_fee_option == 1: VEtZapzJXreco3cbzUT8ZszawsRvRRQzGN5GBaCMwWh
+- migration_fee_option == 2: 8z2tYtwiAkby1tMSdf1hG2Ni8MFBk43o9tYey5zegNDh
+- migration_fee_option == 3: 3BuQgW3g75azhKeE3yzaqeWkmwezuDGwF6FT5py3mFrt
+
+#### Damm v2:
+- migration_fee_option == 0: 96gRhsiKyBJnXT2GxEnh54b9YLjzpEJ4aTetvLmQ5tWj
+- migration_fee_option == 1: 3GZLmQJ98xPRLNJjofzK3bfvhU11WFCiZJhEuPwgfBHb
+- migration_fee_option == 2: 7aqweHmWjiMJEVzTXjvpEasRiDQSK79GNWPqjbkeWtyL
+- migration_fee_option == 3: 6ym6zMi5RqUH3k2BNdiXUtSdpeypdWMLsxTyRhKqzhz2
