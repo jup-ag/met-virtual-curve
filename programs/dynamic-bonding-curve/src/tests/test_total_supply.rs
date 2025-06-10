@@ -29,8 +29,11 @@ fn get_liquidity(
     min_sqrt_price: u128,
     max_sqrt_price: u128,
 ) -> u128 {
-    let liquidity_from_base =
-        get_initial_liquidity_from_delta_base(base_amount, max_sqrt_price, min_sqrt_price).unwrap();
+    let liquidity_from_base: u128 =
+        get_initial_liquidity_from_delta_base(base_amount, max_sqrt_price, min_sqrt_price)
+            .unwrap()
+            .try_into()
+            .unwrap();
     let liquidity_from_quote =
         get_initial_liquidity_from_delta_quote(quote_amount, min_sqrt_price, max_sqrt_price)
             .unwrap();
@@ -78,6 +81,7 @@ fn get_constant_product_curve(
     let migration_sqrt_price = get_sqrt_price_from_price(migration_price); //round up to reduce base token
     let migration_base_amount = get_migration_base_token(
         migration_quote_threshold,
+        0,
         migration_sqrt_price,
         migration_option,
     )
@@ -111,6 +115,8 @@ fn get_constant_product_curve(
         MAX_SQRT_PRICE,
         migration_sqrt_price,
     )
+    .unwrap()
+    .try_into()
     .unwrap();
 
     if last_liquidity != 0 {
@@ -149,6 +155,7 @@ fn get_total_supply_from_curve(
 
     let migration_base_amount = get_migration_base_token(
         migration_quote_threshold,
+        0,
         sqrt_migration_price,
         migration_option,
     )

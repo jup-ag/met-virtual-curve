@@ -118,6 +118,13 @@ describe("Create pool with token2022", () => {
             },
             migrationFeeOption: 0,
             tokenSupply: null,
+            creatorTradingFeePercentage: 0,
+            tokenUpdateAuthority: 0,
+            migrationFee: {
+                feePercentage: 0,
+                creatorFeePercentage: 0,
+            },
+            padding0: [],
             padding: [],
             curve: curves,
         };
@@ -137,7 +144,8 @@ describe("Create pool with token2022", () => {
         const uri = "token2022.com";
 
         virtualPool = await createPoolWithToken2022(context.banksClient, program, {
-            payer: poolCreator,
+            payer: operator,
+            poolCreator,
             quoteMint: NATIVE_MINT,
             config,
             instructionParams: {

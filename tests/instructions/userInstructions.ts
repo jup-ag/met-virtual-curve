@@ -8,7 +8,7 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import {
-  deriveMetadatAccount,
+  deriveMetadataAccount,
   derivePoolAddress,
   derivePoolAuthority,
   deriveTokenVaultAddress,
@@ -37,7 +37,11 @@ import {
   processTransactionMaybeThrow,
   VAULT_PROGRAM_ID,
 } from "../utils";
-import { getConfig, getVirtualPool, getVirtualPoolMetadata } from "../utils/fetcher";
+import {
+  getConfig,
+  getVirtualPool,
+  getVirtualPoolMetadata,
+} from "../utils/fetcher";
 import {
   getOrCreateAssociatedTokenAccount,
   getTokenAccount,
@@ -53,6 +57,7 @@ export type InitializePoolParameters = {
 };
 export type CreatePoolSplTokenParams = {
   payer: Keypair;
+  poolCreator: Keypair;
   quoteMint: PublicKey;
   config: PublicKey;
   instructionParams: InitializePoolParameters;
@@ -65,7 +70,7 @@ export async function createPoolWithSplToken(
   program: VirtualCurveProgram,
   params: CreatePoolSplTokenParams
 ): Promise<PublicKey> {
-  const { payer, quoteMint, config, instructionParams } = params;
+  const { payer, quoteMint, poolCreator, config, instructionParams } = params;
   const configState = await getConfig(banksClient, program, config);
 
   const poolAuthority = derivePoolAuthority();
@@ -74,7 +79,7 @@ export async function createPoolWithSplToken(
   const baseVault = deriveTokenVaultAddress(baseMintKP.publicKey, pool);
   const quoteVault = deriveTokenVaultAddress(quoteMint, pool);
 
-  const mintMetadata = deriveMetadatAccount(baseMintKP.publicKey);
+  const mintMetadata = deriveMetadataAccount(baseMintKP.publicKey);
 
   const tokenProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
@@ -86,7 +91,7 @@ export async function createPoolWithSplToken(
       quoteMint,
       pool,
       payer: payer.publicKey,
-      creator: payer.publicKey,
+      creator: poolCreator.publicKey,
       poolAuthority,
       baseVault,
       quoteVault,
@@ -98,7 +103,7 @@ export async function createPoolWithSplToken(
     .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer, baseMintKP);
+  transaction.sign(payer, baseMintKP, poolCreator);
 
   await processTransactionMaybeThrow(banksClient, transaction);
 
@@ -110,7 +115,7 @@ export async function createPoolWithToken2022(
   program: VirtualCurveProgram,
   params: CreatePoolToken2022Params
 ): Promise<PublicKey> {
-  const { payer, quoteMint, config, instructionParams } = params;
+  const { payer, quoteMint, config, instructionParams, poolCreator } = params;
 
   const poolAuthority = derivePoolAuthority();
   const baseMintKP = Keypair.generate();
@@ -125,7 +130,7 @@ export async function createPoolWithToken2022(
       quoteMint,
       pool,
       payer: payer.publicKey,
-      creator: payer.publicKey,
+      creator: poolCreator.publicKey,
       poolAuthority,
       baseVault,
       quoteVault,
@@ -135,10 +140,9 @@ export async function createPoolWithToken2022(
     .transaction();
 
   transaction.recentBlockhash = (await banksClient.getLatestBlockhash())[0];
-  transaction.sign(payer, baseMintKP);
+  transaction.sign(payer, baseMintKP, poolCreator);
 
   await processTransactionMaybeThrow(banksClient, transaction);
-
 
   return pool;
 }
@@ -387,18 +391,16 @@ export async function swapSimulate(
   };
 }
 
-
 export async function createVirtualPoolMetadata(
   banksClient: BanksClient,
   program: VirtualCurveProgram,
   params: {
-    virtualPool: PublicKey,
-    name: string,
-    website: string,
-    logo: string,
-    creator: Keypair,
-    payer: Keypair
-
+    virtualPool: PublicKey;
+    name: string;
+    website: string;
+    logo: string;
+    creator: Keypair;
+    payer: Keypair;
   }
 ) {
   const { virtualPool, creator, payer, name, website, logo } = params;
@@ -424,7 +426,11 @@ export async function createVirtualPoolMetadata(
 
   await processTransactionMaybeThrow(banksClient, transaction);
   //
-  const metadataState = await getVirtualPoolMetadata(banksClient, program, virtualPoolMetadata);
+  const metadataState = await getVirtualPoolMetadata(
+    banksClient,
+    program,
+    virtualPoolMetadata
+  );
   expect(metadataState.virtualPool.toString()).equal(virtualPool.toString());
   expect(metadataState.name.toString()).equal(name.toString());
   expect(metadataState.website.toString()).equal(website.toString());

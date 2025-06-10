@@ -113,6 +113,13 @@ describe("Claim lp on meteora dammm", () => {
             },
             migrationFeeOption: 0,
             tokenSupply: null,
+            creatorTradingFeePercentage: 0,
+            tokenUpdateAuthority: 0,
+            migrationFee: {
+                feePercentage: 0,
+                creatorFeePercentage: 0,
+            },
+            padding0: [],
             padding: [],
             curve: curves,
         };
@@ -128,7 +135,8 @@ describe("Claim lp on meteora dammm", () => {
 
     it("Create spl pool from config", async () => {
         virtualPool = await createPoolWithSplToken(context.banksClient, program, {
-            payer: poolCreator,
+            poolCreator,
+            payer: operator,
             quoteMint: NATIVE_MINT,
             config,
             instructionParams: {

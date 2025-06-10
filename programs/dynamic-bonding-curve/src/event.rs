@@ -109,6 +109,13 @@ pub struct EvtClaimTradingFee {
 }
 
 #[event]
+pub struct EvtClaimCreatorTradingFee {
+    pub pool: Pubkey,
+    pub token_base_amount: u64,
+    pub token_quote_amount: u64,
+}
+
+#[event]
 pub struct EvtCreateMeteoraMigrationMetadata {
     pub virtual_pool: Pubkey,
 }
@@ -131,8 +138,34 @@ pub struct EvtPartnerWithdrawSurplus {
 }
 
 #[event]
+pub struct EvtCreatorWithdrawSurplus {
+    pub pool: Pubkey,
+    pub surplus_amount: u64,
+}
+
+#[event]
 pub struct EvtWithdrawLeftover {
     pub pool: Pubkey,
     pub leftover_receiver: Pubkey,
     pub leftover_amount: u64,
+}
+
+#[event]
+pub struct EvtUpdatePoolCreator {
+    pub pool: Pubkey,
+    pub creator: Pubkey,
+    pub new_creator: Pubkey,
+}
+
+#[event]
+pub struct EvtWithdrawMigrationFee {
+    pub pool: Pubkey,
+    pub fee: u64,
+    pub flag: u8,
+}
+
+#[event]
+pub struct EvtPartnerWithdrawMigrationFee {
+    pub pool: Pubkey,
+    pub fee: u64,
 }

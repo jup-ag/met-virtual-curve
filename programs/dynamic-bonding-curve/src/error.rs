@@ -106,4 +106,25 @@ pub enum PoolError {
 
     #[msg("Swap amount is over a threshold")]
     SwapAmountIsOverAThreshold,
+
+    #[msg("Invalid fee scheduler")]
+    InvalidFeeScheduler,
+
+    #[msg("Invalid creator trading fee percentage")]
+    InvalidCreatorTradingFeePercentage,
+
+    #[msg("Invalid new creator")]
+    InvalidNewCreator,
+
+    #[msg("Invalid token update authority option")]
+    InvalidTokenUpdateAuthorityOption,
+
+    #[msg("Invalid account for the instruction")]
+    InvalidAccount,
+
+    #[msg("Invalid migrator fee percentage")]
+    InvalidMigratorFeePercentage,
+
+    #[msg("Migration fee has been withdraw")]
+    MigrationFeeHasBeenWithdraw,
 }

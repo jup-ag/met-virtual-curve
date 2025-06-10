@@ -1,5 +1,3 @@
-> The program is still in the process of being audited.
-
 # Dynamic Bonding Curve
 
 The Dynamic Bonding Curve program is a launch pool protocol that allows any launch partners to enable their users to launch tokens with customizable virtual curves directly on their platforms. With direct integration into Jupiter and other trading platforms, traders can trade these launch tokens immediately across all these integrations. The Virtual Cuvre program provides a few benefits:
@@ -44,8 +42,11 @@ Partner can specify these parameters when they create a configuration on all the
 - `owner`: owner of the configuration.
 - `quote_mint`: the quote mint address that virtual pool will support.
 - `locked_vesting`: locked vesting for creator after token is migrated (token will be migrated to [Jup lock](https://lock.jup.ag/))
-- `migration_fee_option`: allow partner to choose a fee option on graduated pool (currently support 0.25% | 0.3% | 1% | 2%)
+- `migration_fee_option`: allow partner to choose a fee option on graduated pool (currently support 0.25% | 0.3% | 1% | 2% | 4% | 6%)
 - `token_supply`: when the fields are specified, token will have fixed supply in pre and post migration, leftover will be returned to leftover_receiver (configured in config key)
+- `creator_trading_fee_percentage`: the percentage of trading fee and surplus pool creator can get for a pool
+- `token_update_authority`: the option to allow creator to update token metadata, 0: mutable, 1: immutable
+- `migration_fee`: the option to allow partner can config migration fee from migration quote threshold. Migration fee can be shared between partner and creator
 - `sqrt_start_price`: square root of min price in the bonding curve for the virtual pools.
 - `curve`: an array of square price and liquidity, that defines the liquidity distribution for the virtual pools.
 
@@ -104,9 +105,18 @@ pnpm test
 - migration_fee_option == 1: HBxB8Lf14Yj8pqeJ8C4qDb5ryHL7xwpuykz31BLNYr7S
 - migration_fee_option == 2: 7v5vBdUQHTNeqk1HnduiXcgbvCyVEZ612HLmYkQoAkik
 - migration_fee_option == 3: EkvP7d5yKxovj884d2DwmBQbrHUWRLGK6bympzrkXGja
+- migration_fee_option == 4: 9EZYAJrcqNWNQzP2trzZesP7XKMHA1jEomHzbRsdX8R2
+- migration_fee_option == 5: 8cdKo87jZU2R12KY1BUjjRPwyjgdNjLGqSGQyrDshhud
 
 #### Damm v2:
 - migration_fee_option == 0: 7F6dnUcRuyM2TwR8myT1dYypFXpPSxqwKNSFNkxyNESd
 - migration_fee_option == 1: 2nHK1kju6XjphBLbNxpM5XRGFj7p9U8vvNzyZiha1z6k
 - migration_fee_option == 2: Hv8Lmzmnju6m7kcokVKvwqz7QPmdX9XfKjJsXz8RXcjp
 - migration_fee_option == 3: 2c4cYd4reUYVRAB9kUUkrq55VPyy2FNQ3FDL4o12JXmq
+- migration_fee_option == 4: AkmQWebAwFvWk55wBoCr5D62C6VVDTzi84NJuD9H7cFD
+- migration_fee_option == 5: DbCRBj8McvPYHJG1ukj8RE15h2dCNUdTAESG49XpQ44u
+
+
+## Audits
+
+The program has been audited. You can find the audit report [here](https://docs.meteora.ag/resources/audits#id-4.-dbc-dynamic-bonding-curve).

@@ -5,7 +5,10 @@ use crate::{
     const_pda,
     params::fee_parameters::to_bps,
     safe_math::SafeMath,
-    state::{MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
+    state::{
+        MigrationAmount, MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig,
+        VirtualPool,
+    },
     *,
 };
 
@@ -235,10 +238,10 @@ pub fn handle_migrate_meteora_damm<'info>(
         PoolError::InvalidMigrationOption
     );
     let base_reserve = config.migration_base_threshold;
-    let quote_reserve = config.migration_quote_threshold;
+    let MigrationAmount { quote_amount, .. } = config.get_migration_quote_amount_for_config()?;
 
     ctx.accounts
-        .create_pool(base_reserve, quote_reserve, const_pda::pool_authority::BUMP)?;
+        .create_pool(base_reserve, quote_amount, const_pda::pool_authority::BUMP)?;
 
     virtual_pool.update_after_create_pool();
 
@@ -248,7 +251,7 @@ pub fn handle_migrate_meteora_damm<'info>(
         .accounts
         .base_vault
         .amount
-        .safe_sub(virtual_pool.get_protocol_and_partner_base_fee()?)?;
+        .safe_sub(virtual_pool.get_protocol_and_trading_base_fee()?)?;
 
     let burnable_amount = config.get_burnable_amount_post_migration(left_base_token)?;
     if burnable_amount > 0 {

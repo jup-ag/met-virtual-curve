@@ -6,6 +6,7 @@ use anchor_spl::{
     token_interface::{TokenAccount, TokenInterface},
 };
 use damm_v2::types::{AddLiquidityParameters, InitializePoolParameters};
+use ruint::aliases::U512;
 
 use crate::{
     const_pda,
@@ -14,8 +15,8 @@ use crate::{
     params::fee_parameters::to_bps,
     safe_math::SafeMath,
     state::{
-        LiquidityDistribution, MigrationFeeOption, MigrationOption, MigrationProgress, PoolConfig,
-        VirtualPool,
+        LiquidityDistribution, MigrationAmount, MigrationFeeOption, MigrationOption,
+        MigrationProgress, PoolConfig, VirtualPool,
     },
     *,
 };
@@ -137,7 +138,9 @@ impl<'info> MigrateDammV2Ctx<'info> {
             MigrationFeeOption::FixedBps25
             | MigrationFeeOption::FixedBps30
             | MigrationFeeOption::FixedBps100
-            | MigrationFeeOption::FixedBps200 => {
+            | MigrationFeeOption::FixedBps200
+            | MigrationFeeOption::FixedBps400
+            | MigrationFeeOption::FixedBps600 => {
                 require!(
                     damm_config.pool_fees.base_fee.period_frequency == 0,
                     PoolError::InvalidConfigAccount
@@ -425,16 +428,17 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
     let initial_quote_vault_amount = ctx.accounts.quote_vault.amount;
     let initial_base_vault_amount = ctx.accounts.base_vault.amount;
 
-    let protocol_and_partner_base_fee = virtual_pool.get_protocol_and_partner_base_fee()?;
+    let protocol_and_partner_base_fee = virtual_pool.get_protocol_and_trading_base_fee()?;
     let migration_sqrt_price = config.migration_sqrt_price;
-    let quote_threshold = config.migration_quote_threshold;
+
+    let MigrationAmount { quote_amount, .. } = config.get_migration_quote_amount_for_config()?;
     let excluded_fee_base_reserve =
         initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?;
 
     // calculate initial liquidity
     let initial_liquidity = get_liquidity_for_adding_liquidity(
         excluded_fee_base_reserve,
-        quote_threshold,
+        quote_amount,
         migration_sqrt_price,
     )?;
 
@@ -455,13 +459,13 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
             partner_liquidity_distribution,
             creator_liquidity_distribution,
             migration_metadata.partner,
-            migration_metadata.pool_creator,
+            virtual_pool.creator,
         )
     } else {
         (
             creator_liquidity_distribution,
             partner_liquidity_distribution,
-            migration_metadata.pool_creator,
+            virtual_pool.creator,
             migration_metadata.partner,
         )
     };
@@ -497,7 +501,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
 
     let updated_excluded_fee_base_reserve =
         excluded_fee_base_reserve.safe_sub(deposited_base_amount)?;
-    let updated_quote_threshold = quote_threshold.safe_sub(deposited_quote_amount)?;
+    let updated_quote_threshold = quote_amount.safe_sub(deposited_quote_amount)?;
     let liquidity_for_second_position = get_liquidity_for_adding_liquidity(
         updated_excluded_fee_base_reserve,
         updated_quote_threshold,
@@ -564,5 +568,11 @@ fn get_liquidity_for_adding_liquidity(
         get_initial_liquidity_from_delta_base(base_amount, MAX_SQRT_PRICE, sqrt_price)?;
     let liquidity_from_quote =
         get_initial_liquidity_from_delta_quote(quote_amount, MIN_SQRT_PRICE, sqrt_price)?;
-    Ok(liquidity_from_base.min(liquidity_from_quote))
+    if liquidity_from_base > U512::from(liquidity_from_quote) {
+        Ok(liquidity_from_quote)
+    } else {
+        Ok(liquidity_from_base
+            .try_into()
+            .map_err(|_| PoolError::TypeCastFailed)?)
+    }
 }

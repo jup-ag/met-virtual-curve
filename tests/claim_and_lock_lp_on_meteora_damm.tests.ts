@@ -102,6 +102,13 @@ async function createPartnerConfig(
     },
     migrationFeeOption: 0,
     tokenSupply: null,
+    creatorTradingFeePercentage: 0,
+    tokenUpdateAuthority: 0,
+    migrationFee: {
+      feePercentage: 0,
+      creatorFeePercentage: 0,
+    },
+    padding0: [],
     padding: [],
     curve: curves,
   };
@@ -118,6 +125,7 @@ async function createPartnerConfig(
 async function setupPrerequisite(
   banksClient: BanksClient,
   program: VirtualCurveProgram,
+  payer: Keypair,
   poolCreator: Keypair,
   swapInitiator: Keypair,
   admin: Keypair,
@@ -128,7 +136,8 @@ async function setupPrerequisite(
   migrationMetadata: PublicKey;
 }> {
   const virtualPool = await createPoolWithSplToken(banksClient, program, {
-    payer: poolCreator,
+    payer,
+    poolCreator,
     quoteMint: NATIVE_MINT,
     config,
     instructionParams: {
@@ -263,6 +272,7 @@ describe("Claim and lock lp on meteora dammm", () => {
       } = await setupPrerequisite(
         context.banksClient,
         program,
+        admin,
         poolCreator,
         user,
         admin,
@@ -417,6 +427,7 @@ describe("Claim and lock lp on meteora dammm", () => {
       } = await setupPrerequisite(
         context.banksClient,
         program,
+        operator,
         poolCreator,
         user,
         admin,

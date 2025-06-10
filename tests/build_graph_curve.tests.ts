@@ -12,7 +12,7 @@ import {
 } from "./instructions";
 import { VirtualCurveProgram } from "./utils/types";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { createDammConfig, designCurve, fundSol, getMint, startTest } from "./utils";
+import { createDammConfig, designGraphCurve, fundSol, getMint, startTest } from "./utils";
 import {
     createVirtualCurveProgram,
     derivePoolAuthority,
@@ -23,7 +23,7 @@ import { expect } from "chai";
 import { createToken, mintSplTokenTo } from "./utils/token";
 import { BN } from "bn.js";
 
-describe("Design default curve", () => {
+describe("Build graph curve", () => {
     let context: ProgramTestContext;
     let admin: Keypair;
     let operator: Keypair;
@@ -49,12 +49,13 @@ describe("Design default curve", () => {
         program = createVirtualCurveProgram();
     });
 
-    it("Design curve with lock vesting", async () => {
+    it("Graph curve with k > 1", async () => {
         let totalTokenSupply = 1_000_000_000; // 1 billion
-        let percentageSupplyOnMigration = 10; // 10%;
-        let migrationQuoteThreshold = 300; // 300 sol
+        let initialMarketcap = 30; // 30 SOL;
+        let migrationMarketcap = 300; // 300 SOL;        
         let tokenBaseDecimal = 6;
         let tokenQuoteDecimal = 9;
+        let kFactor = 1.2;
         let lockedVesting = {
             amountPerPeriod: new BN(123456),
             cliffDurationFromMigrationTime: new BN(0),
@@ -62,18 +63,21 @@ describe("Design default curve", () => {
             numberOfPeriod: new BN(120),
             cliffUnlockAmount: new BN(123456),
         };
+        let leftOver = 10_000;
         let migrationOption = 0;
         let quoteMint = await createToken(context.banksClient, admin, admin.publicKey, tokenQuoteDecimal);
-        let instructionParams = designCurve(
+        let instructionParams = designGraphCurve(
             totalTokenSupply,
-            percentageSupplyOnMigration,
-            migrationQuoteThreshold,
+            initialMarketcap,
+            migrationMarketcap,
             migrationOption,
             tokenBaseDecimal,
             tokenQuoteDecimal,
             0,
             1,
-            lockedVesting
+            lockedVesting,
+            leftOver,
+            kFactor,
         );
         const params: CreateConfigParams = {
             payer: partner,
@@ -87,31 +91,36 @@ describe("Design default curve", () => {
         await fullFlow(context.banksClient, program, config, operator, poolCreator, user, admin, quoteMint);
     });
 
-    it("Design curve without lock vesting", async () => {
+
+    it("Graph curve with k < 1", async () => {
         let totalTokenSupply = 1_000_000_000; // 1 billion
-        let percentageSupplyOnMigration = 10; // 10%;
-        let migrationQuoteThreshold = 300; // 300 sol
-        let migrationOption = 0;
+        let initialMarketcap = 30; // 30 SOL;
+        let migrationMarketcap = 300; // 300 SOL;        
         let tokenBaseDecimal = 6;
         let tokenQuoteDecimal = 9;
+        let kFactor = 0.6;
         let lockedVesting = {
-            amountPerPeriod: new BN(0),
+            amountPerPeriod: new BN(123456),
             cliffDurationFromMigrationTime: new BN(0),
-            frequency: new BN(0),
-            numberOfPeriod: new BN(0),
-            cliffUnlockAmount: new BN(0),
+            frequency: new BN(1),
+            numberOfPeriod: new BN(120),
+            cliffUnlockAmount: new BN(123456),
         };
+        let leftOver = 10_000;
+        let migrationOption = 0;
         let quoteMint = await createToken(context.banksClient, admin, admin.publicKey, tokenQuoteDecimal);
-        let instructionParams = designCurve(
+        let instructionParams = designGraphCurve(
             totalTokenSupply,
-            percentageSupplyOnMigration,
-            migrationQuoteThreshold,
+            initialMarketcap,
+            migrationMarketcap,
             migrationOption,
             tokenBaseDecimal,
             tokenQuoteDecimal,
             0,
             1,
-            lockedVesting
+            lockedVesting,
+            leftOver,
+            kFactor,
         );
         const params: CreateConfigParams = {
             payer: partner,

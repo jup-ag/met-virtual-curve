@@ -18,7 +18,7 @@ import {
   MIN_SQRT_PRICE,
   U64_MAX,
 } from "./utils";
-import { getVirtualPool } from "./utils/fetcher";
+import { getClaimFeeOperator, getVirtualPool } from "./utils/fetcher";
 import { getAssociatedTokenAddressSync, NATIVE_MINT } from "@solana/spl-token";
 import { expect } from "chai";
 
@@ -28,6 +28,7 @@ describe("Fee Swap test", () => {
     let admin: Keypair;
     let partner: Keypair;
     let user: Keypair;
+    let operator: Keypair;
     let poolCreator: Keypair;
     let program: VirtualCurveProgram;
     let config: PublicKey;
@@ -40,10 +41,12 @@ describe("Fee Swap test", () => {
       partner = Keypair.generate();
       user = Keypair.generate();
       poolCreator = Keypair.generate();
+      operator = Keypair.generate();
       const receivers = [
         partner.publicKey,
         user.publicKey,
         poolCreator.publicKey,
+        operator.publicKey,
       ];
       await fundSol(context.banksClient, admin, receivers);
       program = createVirtualCurveProgram();
@@ -97,6 +100,13 @@ describe("Fee Swap test", () => {
         },
         migrationFeeOption: 0,
         tokenSupply: null,
+        creatorTradingFeePercentage: 0,
+        tokenUpdateAuthority: 0,
+        migrationFee: {
+          feePercentage: 0,
+          creatorFeePercentage: 0,
+        },
+        padding0: [],
         padding: [],
         curve: curves,
       };
@@ -110,7 +120,8 @@ describe("Fee Swap test", () => {
       config = await createConfig(context.banksClient, program, params);
 
       virtualPool = await createPoolWithSplToken(context.banksClient, program, {
-        payer: poolCreator,
+        poolCreator,
+        payer: operator,
         quoteMint: NATIVE_MINT,
         config,
         instructionParams: {
@@ -131,8 +142,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const preBaseReserve = virtualPoolState.baseReserve;
       const preQuoteReserve = virtualPoolState.quoteReserve;
-      const preQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const preBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const preQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const preBaseTradingFee = virtualPoolState.partnerBaseFee;
       const preQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const preBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -171,8 +182,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const postBaseReserve = virtualPoolState.baseReserve;
       const postQuoteReserve = virtualPoolState.quoteReserve;
-      const postQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const postBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const postQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const postBaseTradingFee = virtualPoolState.partnerBaseFee;
       const postQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -208,14 +219,17 @@ describe("Fee Swap test", () => {
         virtualPoolState.protocolBaseFee.toString()
       );
       expect(totalSwapBaseTradingFee.toString()).eq(
-        virtualPoolState.tradingBaseFee.toString()
+        virtualPoolState.partnerBaseFee.toString()
       );
       expect(postQuoteReserve.sub(new BN(inAmount)).toString()).eq(
         preQuoteReserve.toString()
       );
 
       expect(preBaseReserve.sub(postBaseReserve).toString()).eq(
-        new BN(userBaseBaseBalance.toString()).add(totalSwapBaseTradingFee).add(totalSwapBaseProtolFee).toString()
+        new BN(userBaseBaseBalance.toString())
+          .add(totalSwapBaseTradingFee)
+          .add(totalSwapBaseProtolFee)
+          .toString()
       );
 
       // assert balance vault changed
@@ -226,7 +240,11 @@ describe("Fee Swap test", () => {
         Number(userBaseBaseBalance)
       );
       expect(Number(preBaseVaultBalance) - Number(postBaseVaultBalance)).eq(
-        (preBaseReserve.sub(postBaseReserve)).sub(totalSwapBaseTradingFee).sub(totalSwapBaseProtolFee).toNumber()
+        preBaseReserve
+          .sub(postBaseReserve)
+          .sub(totalSwapBaseTradingFee)
+          .sub(totalSwapBaseProtolFee)
+          .toNumber()
       );
     });
 
@@ -240,8 +258,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const preBaseReserve = virtualPoolState.baseReserve;
       const preQuoteReserve = virtualPoolState.quoteReserve;
-      const preQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const preBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const preQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const preBaseTradingFee = virtualPoolState.partnerBaseFee;
       const preQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const preBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -288,8 +306,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const postBaseReserve = virtualPoolState.baseReserve;
       const postQuoteReserve = virtualPoolState.quoteReserve;
-      const postQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const postBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const postQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const postBaseTradingFee = virtualPoolState.partnerBaseFee;
       const postQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -319,7 +337,7 @@ describe("Fee Swap test", () => {
         virtualPoolState.protocolQuoteFee.toString()
       );
       expect(totalSwapQuoteTradingFee.toString()).eq(
-        virtualPoolState.tradingQuoteFee.toString()
+        virtualPoolState.partnerQuoteFee.toString()
       );
       expect(totalSwapBaseProtolFee.toNumber()).eq(0);
       expect(totalSwapBaseTradingFee.toNumber()).eq(0);
@@ -341,7 +359,13 @@ describe("Fee Swap test", () => {
         (
           Number(preQuoteVaultBalance) - Number(postQuoteVaultBalance)
         ).toString()
-      ).eq(preQuoteReserve.sub(postQuoteReserve).sub(totalSwapQuoteTradingFee).sub(totalSwapQuoteProtocolFee).toString());
+      ).eq(
+        preQuoteReserve
+          .sub(postQuoteReserve)
+          .sub(totalSwapQuoteTradingFee)
+          .sub(totalSwapQuoteProtocolFee)
+          .toString()
+      );
       expect(
         (Number(postBaseVaultBalance) - Number(preBaseVaultBalance)).toString()
       ).eq(inAmount.toString());
@@ -353,6 +377,7 @@ describe("Fee Swap test", () => {
     let admin: Keypair;
     let partner: Keypair;
     let user: Keypair;
+    let operator: Keypair;
     let poolCreator: Keypair;
     let program: VirtualCurveProgram;
     let config: PublicKey;
@@ -365,10 +390,13 @@ describe("Fee Swap test", () => {
       partner = Keypair.generate();
       user = Keypair.generate();
       poolCreator = Keypair.generate();
+      operator = Keypair.generate();
+
       const receivers = [
         partner.publicKey,
         user.publicKey,
         poolCreator.publicKey,
+        operator.publicKey,
       ];
       await fundSol(context.banksClient, admin, receivers);
       program = createVirtualCurveProgram();
@@ -422,6 +450,13 @@ describe("Fee Swap test", () => {
         },
         migrationFeeOption: 0,
         tokenSupply: null,
+        creatorTradingFeePercentage: 0,
+        tokenUpdateAuthority: 0,
+        migrationFee: {
+          feePercentage: 0,
+          creatorFeePercentage: 0,
+        },
+        padding0: [],
         padding: [],
         curve: curves,
       };
@@ -435,7 +470,8 @@ describe("Fee Swap test", () => {
       config = await createConfig(context.banksClient, program, params);
 
       virtualPool = await createPoolWithSplToken(context.banksClient, program, {
-        payer: poolCreator,
+        poolCreator,
+        payer: operator,
         quoteMint: NATIVE_MINT,
         config,
         instructionParams: {
@@ -456,8 +492,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const preBaseReserve = virtualPoolState.baseReserve;
       const preQuoteReserve = virtualPoolState.quoteReserve;
-      const preQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const preBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const preQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const preBaseTradingFee = virtualPoolState.partnerBaseFee;
       const preQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const preBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -496,8 +532,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const postBaseReserve = virtualPoolState.baseReserve;
       const postQuoteReserve = virtualPoolState.quoteReserve;
-      const postQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const postBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const postQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const postBaseTradingFee = virtualPoolState.partnerBaseFee;
       const postQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -533,7 +569,7 @@ describe("Fee Swap test", () => {
         virtualPoolState.protocolQuoteFee.toString()
       );
       expect(totalSwapQuoteTradingFee.toString()).eq(
-        virtualPoolState.tradingQuoteFee.toString()
+        virtualPoolState.partnerQuoteFee.toString()
       );
       expect(totalSwapBaseProtolFee.toNumber()).eq(0);
       expect(totalSwapBaseTradingFee.toNumber()).eq(0);
@@ -566,8 +602,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const preBaseReserve = virtualPoolState.baseReserve;
       const preQuoteReserve = virtualPoolState.quoteReserve;
-      const preQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const preBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const preQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const preBaseTradingFee = virtualPoolState.partnerBaseFee;
       const preQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const preBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -614,8 +650,8 @@ describe("Fee Swap test", () => {
       // use to validate virtual curve state
       const postBaseReserve = virtualPoolState.baseReserve;
       const postQuoteReserve = virtualPoolState.quoteReserve;
-      const postQuoteTradingFee = virtualPoolState.tradingQuoteFee;
-      const postBaseTradingFee = virtualPoolState.tradingBaseFee;
+      const postQuoteTradingFee = virtualPoolState.partnerQuoteFee;
+      const postBaseTradingFee = virtualPoolState.partnerBaseFee;
       const postQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
       const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
 
@@ -659,7 +695,13 @@ describe("Fee Swap test", () => {
         (
           Number(preQuoteVaultBalance) - Number(postQuoteVaultBalance)
         ).toString()
-      ).eq(preQuoteReserve.sub(postQuoteReserve).sub(totalSwapQuoteTradingFee).sub(totalSwapQuoteProtocolFee).toString());
+      ).eq(
+        preQuoteReserve
+          .sub(postQuoteReserve)
+          .sub(totalSwapQuoteTradingFee)
+          .sub(totalSwapQuoteProtocolFee)
+          .toString()
+      );
       expect(
         (Number(postBaseVaultBalance) - Number(preBaseVaultBalance)).toString()
       ).eq(inAmount.toString());

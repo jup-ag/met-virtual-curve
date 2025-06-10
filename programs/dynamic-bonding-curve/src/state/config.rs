@@ -16,7 +16,7 @@ use crate::{
     safe_math::SafeMath,
     u128x128_math::Rounding,
     utils_math::{safe_mul_div_cast_u128, safe_mul_div_cast_u64},
-    LockedVestingParams, PoolError,
+    LockedVestingParams, MigrationFee, PoolError,
 };
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
@@ -273,6 +273,24 @@ impl LockedVestingConfig {
     TryFromPrimitive,
     AnchorDeserialize,
     AnchorSerialize,
+    Default,
+)]
+pub enum TokenUpdateAuthorityOption {
+    #[default]
+    Mutable,
+    Immutable,
+}
+
+#[repr(u8)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    IntoPrimitive,
+    TryFromPrimitive,
+    AnchorDeserialize,
+    AnchorSerialize,
 )]
 pub enum MigrationOption {
     MeteoraDamm,
@@ -311,6 +329,8 @@ pub enum MigrationFeeOption {
     FixedBps30,  // 0.3%
     FixedBps100, // 1%
     FixedBps200, // 2%
+    FixedBps400, // 4%
+    FixedBps600, // 6%
 }
 
 impl MigrationFeeOption {
@@ -327,6 +347,12 @@ impl MigrationFeeOption {
             }
             MigrationFeeOption::FixedBps200 => {
                 require!(base_fee_bps == 200, PoolError::InvalidMigrationFeeOption);
+            }
+            MigrationFeeOption::FixedBps400 => {
+                require!(base_fee_bps == 400, PoolError::InvalidMigrationFeeOption);
+            }
+            MigrationFeeOption::FixedBps600 => {
+                require!(base_fee_bps == 600, PoolError::InvalidMigrationFeeOption);
             }
         }
         Ok(())
@@ -370,10 +396,16 @@ pub struct PoolConfig {
     pub migration_fee_option: u8,
     /// flag to indicate whether token is dynamic supply (0) or fixed supply (1)
     pub fixed_token_supply_flag: u8,
-    /// padding 0
-    pub _padding_0: [u8; 3],
+    /// creator trading fee percentage
+    pub creator_trading_fee_percentage: u8,
+    /// token update authority
+    pub token_update_authority: u8,
+    /// migration fee percentage
+    pub migration_fee_percentage: u8,
+    /// creator migration fee percentage
+    pub creator_migration_fee_percentage: u8,
     /// padding 1
-    pub _padding_1: [u8; 8],
+    pub _padding_1: [u8; 7],
     /// swap base amount
     pub swap_base_amount: u64,
     /// migration quote threshold (in quote token)
@@ -423,6 +455,9 @@ impl PoolConfig {
         fee_claimer: &Pubkey,
         leftover_receiver: &Pubkey,
         pool_fees: &PoolFeeParameters,
+        creator_trading_fee_percentage: u8,
+        token_update_authority: u8,
+        migration_fee: MigrationFee,
         collect_fee_mode: u8,
         migration_option: u8,
         activation_type: u8,
@@ -450,6 +485,10 @@ impl PoolConfig {
         self.fee_claimer = *fee_claimer;
         self.leftover_receiver = *leftover_receiver;
         self.pool_fees = pool_fees.to_pool_fees_config();
+        self.creator_trading_fee_percentage = creator_trading_fee_percentage;
+        self.token_update_authority = token_update_authority;
+        self.migration_fee_percentage = migration_fee.fee_percentage;
+        self.creator_migration_fee_percentage = migration_fee.creator_fee_percentage;
         self.collect_fee_mode = collect_fee_mode;
         self.migration_option = migration_option;
         self.activation_type = activation_type;
@@ -477,6 +516,49 @@ impl PoolConfig {
         for i in 0..curve.len() {
             self.curve[i] = curve[i].to_liquidity_distribution_config();
         }
+    }
+
+    pub fn get_token_update_authority(&self) -> Result<TokenUpdateAuthorityOption> {
+        let token_update_authority =
+            TokenUpdateAuthorityOption::try_from(self.token_update_authority)
+                .map_err(|_| PoolError::InvalidTokenUpdateAuthorityOption)?;
+        Ok(token_update_authority)
+    }
+
+    pub fn get_migration_quote_amount_for_config(&self) -> Result<MigrationAmount> {
+        PoolConfig::get_migration_quote_amount(
+            self.migration_quote_threshold,
+            self.migration_fee_percentage,
+        )
+    }
+    pub fn get_migration_quote_amount(
+        migration_quote_threshold: u64,
+        migration_fee_percentage: u8,
+    ) -> Result<MigrationAmount> {
+        let quote_amount: u64 = safe_mul_div_cast_u64(
+            migration_quote_threshold,
+            100.safe_sub(migration_fee_percentage.into())?,
+            100,
+            Rounding::Up,
+        )?;
+        let fee = migration_quote_threshold.safe_sub(quote_amount)?;
+        Ok(MigrationAmount { quote_amount, fee })
+    }
+
+    pub fn get_migration_fee_distribution(&self) -> Result<MigrationFeeDistribution> {
+        let MigrationAmount { fee, .. } = self.get_migration_quote_amount_for_config()?;
+
+        let creator_migration_fee = safe_mul_div_cast_u64(
+            fee,
+            self.creator_migration_fee_percentage.into(),
+            100,
+            Rounding::Down,
+        )?;
+        let partner_migration_fee = fee.safe_sub(creator_migration_fee)?;
+        Ok(MigrationFeeDistribution {
+            partner_migration_fee,
+            creator_migration_fee,
+        })
     }
 
     pub fn get_swap_amount_with_buffer(
@@ -619,6 +701,32 @@ impl PoolConfig {
         )?;
         Ok(max_swallow_amount)
     }
+
+    pub fn split_partner_and_creator_fee(&self, fee: u64) -> Result<PartnerAndCreatorSplitFee> {
+        // early return
+        if self.creator_trading_fee_percentage == 0 {
+            return Ok(PartnerAndCreatorSplitFee {
+                partner_fee: fee,
+                creator_fee: 0,
+            });
+        }
+        let creator_fee = safe_mul_div_cast_u64(
+            fee,
+            self.creator_trading_fee_percentage.into(),
+            100,
+            Rounding::Down,
+        )?;
+        let partner_fee = fee.safe_sub(creator_fee)?;
+        Ok(PartnerAndCreatorSplitFee {
+            partner_fee,
+            creator_fee,
+        })
+    }
+}
+
+pub struct PartnerAndCreatorSplitFee {
+    pub partner_fee: u64,
+    pub creator_fee: u64,
 }
 
 pub struct LiquidityDistributionU64 {
@@ -642,4 +750,15 @@ impl LiquidityDistributionItem {
     pub fn get_total_liquidity(&self) -> Result<u128> {
         Ok(self.unlocked_liquidity.safe_add(self.locked_liquidity)?)
     }
+}
+
+pub struct MigrationAmount {
+    pub quote_amount: u64,
+    pub fee: u64,
+}
+
+// TODO, do we need a haircut for protocol?
+pub struct MigrationFeeDistribution {
+    pub partner_migration_fee: u64,
+    pub creator_migration_fee: u64,
 }
