@@ -217,6 +217,7 @@ impl VirtualPool {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
+        let mut actual_trade_fee_numerator = 0;
 
         let actual_amount_in = if fee_mode.fees_on_input {
             let FeeOnAmountResult {
@@ -224,18 +225,20 @@ impl VirtualPool {
                 protocol_fee,
                 trading_fee,
                 referral_fee,
+                trade_fee_numerator,
             } = config.pool_fees.get_fee_on_amount(
-                &self.volatility_tracker,
+                volatility_tracker,
                 fee_mode.has_referral,
                 amount_in,
                 current_point,
-                self.activation_point,
+                activation_point,
                 trade_direction,
             )?;
 
             actual_protocol_fee = protocol_fee;
             actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
+            actual_trade_fee_numerator = trade_fee_numerator;
 
             amount
         } else {
@@ -262,27 +265,23 @@ impl VirtualPool {
                 protocol_fee,
                 trading_fee,
                 referral_fee,
+                trade_fee_numerator,
             } = config.pool_fees.get_fee_on_amount(
-                &self.volatility_tracker,
+                volatility_tracker,
                 fee_mode.has_referral,
                 output_amount,
                 current_point,
-                self.activation_point,
+                activation_point,
                 trade_direction,
             )?;
 
             actual_protocol_fee = protocol_fee;
             actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
+            actual_trade_fee_numerator = trade_fee_numerator;
 
             amount
         };
-
-        let fee_numerator = config.pool_fees.get_total_trading_fee(
-            volatility_tracker,
-            current_point,
-            activation_point,
-        )?;
 
         Ok(SwapResult {
             actual_input_amount: actual_amount_in,
@@ -291,7 +290,7 @@ impl VirtualPool {
             trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
-            fee_numerator,
+            fee_numerator: actual_trade_fee_numerator,
         })
     }
 

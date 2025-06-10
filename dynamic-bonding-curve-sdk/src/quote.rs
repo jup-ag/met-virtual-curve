@@ -1,10 +1,10 @@
 use anyhow::{ensure, Context, Result};
-use solana_sdk::pubkey::Pubkey;
 use dynamic_bonding_curve::{
     activation_handler::ActivationType,
     params::swap::TradeDirection,
     state::{fee::FeeMode, PoolConfig, SwapResult, VirtualPool},
 };
+use solana_sdk::pubkey::Pubkey;
 
 pub fn quote_exact_in(
     virtual_pool: &VirtualPool,
@@ -45,7 +45,7 @@ pub fn quote_exact_in(
     };
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
     let swap_result = virtual_pool.get_swap_result(
-        &config,
+        config,
         transfer_fee_excluded_amount_in,
         fee_mode,
         trade_direction,

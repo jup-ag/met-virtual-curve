@@ -144,6 +144,7 @@ impl PoolFeesConfig {
             protocol_fee,
             referral_fee,
             trading_fee,
+            trade_fee_numerator,
         })
     }
 }

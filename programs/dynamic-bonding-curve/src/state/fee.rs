@@ -19,6 +19,7 @@ pub struct FeeOnAmountResult {
     pub trading_fee: u64,
     pub protocol_fee: u64,
     pub referral_fee: u64,
+    pub trade_fee_numerator: u64,
 }
 
 #[zero_copy]
