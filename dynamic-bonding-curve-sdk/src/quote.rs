@@ -33,6 +33,13 @@ pub fn quote_exact_in(
 
     let activation_type =
         ActivationType::try_from(config.activation_type).context("invalid activation type")?;
+
+    println!(">>> activation_type: {:#?}", activation_type);
+    println!(
+        ">>> current_slot {}, current_timestamp {}",
+        current_slot, current_timestamp
+    );
+
     let current_point = match activation_type {
         ActivationType::Slot => current_slot,
         ActivationType::Timestamp => current_timestamp,

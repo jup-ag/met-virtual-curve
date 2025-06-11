@@ -111,6 +111,8 @@ impl PoolFeesConfig {
             trade_direction,
         )?;
 
+        println!(">>> trade_fee_numerator: {}", trade_fee_numerator);
+
         let trading_fee: u64 =
             safe_mul_div_cast_u64(amount, trade_fee_numerator, FEE_DENOMINATOR, Rounding::Up)?;
         // update amount

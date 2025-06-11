@@ -219,6 +219,10 @@ impl VirtualPool {
         let mut actual_referral_fee = 0;
         let mut actual_trade_fee_numerator = 0;
 
+        println!(">>> amount_in: {}", amount_in);
+        println!(">>> current_point: {}", current_point);
+        println!(">>> activation_point: {}", activation_point);
+
         let actual_amount_in = if fee_mode.fees_on_input {
             let FeeOnAmountResult {
                 amount,
