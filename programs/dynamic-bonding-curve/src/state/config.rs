@@ -88,7 +88,9 @@ impl PoolFeesConfig {
         let total_fee_numerator = if total_fee_numerator > MAX_FEE_NUMERATOR.into() {
             MAX_FEE_NUMERATOR
         } else {
-            total_fee_numerator.try_into().unwrap()
+            total_fee_numerator
+                .try_into()
+                .map_err(|_| PoolError::MathOverflow)?
         };
 
         Ok(total_fee_numerator)

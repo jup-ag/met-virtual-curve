@@ -165,8 +165,8 @@ pub fn get_next_sqrt_price_from_input(
     amount_in: u64,
     base_for_quote: bool,
 ) -> Result<u128> {
-    assert!(sqrt_price > 0);
-    assert!(liquidity > 0);
+    require!(sqrt_price > 0, PoolError::InvalidCurve);
+    require!(liquidity > 0, PoolError::AmountIsZero);
 
     // round to make sure that we don't pass the target price
     if base_for_quote {
