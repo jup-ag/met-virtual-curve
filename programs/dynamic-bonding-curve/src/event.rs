@@ -5,8 +5,8 @@ use crate::{
     params::{
         fee_parameters::PoolFeeParameters, liquidity_distribution::LiquidityDistributionParameters,
     },
-    state::SwapResult,
-    LockedVestingParams, SwapParameters,
+    state::{SwapResult, SwapResult2},
+    ConfigParameters, LockedVestingParams, SwapParameters, SwapParameters2,
 };
 
 /// Create partner metadata
@@ -51,6 +51,15 @@ pub struct EvtCreateConfig {
     pub curve: Vec<LiquidityDistributionParameters>,
 }
 
+#[event]
+pub struct EvtCreateConfigV2 {
+    pub config: Pubkey,
+    pub quote_mint: Pubkey,
+    pub fee_claimer: Pubkey,
+    pub leftover_receiver: Pubkey,
+    pub config_parameters: ConfigParameters,
+}
+
 /// Create claim fee operator
 #[event]
 pub struct EvtCreateClaimFeeOperator {
@@ -87,6 +96,19 @@ pub struct EvtSwap {
 }
 
 #[event]
+pub struct EvtSwap2 {
+    pub pool: Pubkey,
+    pub config: Pubkey,
+    pub trade_direction: u8,
+    pub has_referral: bool,
+    pub swap_parameters: SwapParameters2,
+    pub swap_result: SwapResult2,
+    pub quote_reserve_amount: u64,
+    pub migration_threshold: u64,
+    pub current_timestamp: u64,
+}
+
+#[event]
 pub struct EvtCurveComplete {
     pub pool: Pubkey,
     pub config: Pubkey,
@@ -117,11 +139,6 @@ pub struct EvtClaimCreatorTradingFee {
 
 #[event]
 pub struct EvtCreateMeteoraMigrationMetadata {
-    pub virtual_pool: Pubkey,
-}
-
-#[event]
-pub struct EvtCreateDammV2MigrationMetadata {
     pub virtual_pool: Pubkey,
 }
 
@@ -168,4 +185,11 @@ pub struct EvtWithdrawMigrationFee {
 pub struct EvtPartnerWithdrawMigrationFee {
     pub pool: Pubkey,
     pub fee: u64,
+}
+
+#[event]
+pub struct EvtClaimPoolCreationFee {
+    pub pool: Pubkey,
+    pub treasury: Pubkey,
+    pub creation_fee: u64,
 }

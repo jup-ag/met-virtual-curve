@@ -103,7 +103,11 @@ describe("Create virtual pool metadata", () => {
                 feePercentage: 0,
                 creatorFeePercentage: 0,
             },
-            padding0: [],
+            migratedPoolFee: {
+                collectFeeMode: 0,
+                dynamicFee: 0,
+                poolFeeBps: 0,
+            },
             padding: [],
             curve: curves,
         };

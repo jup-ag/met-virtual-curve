@@ -4,10 +4,10 @@ use ruint::aliases::U256;
 use static_assertions::const_assert_eq;
 
 use crate::{
-    base_fee::{get_base_fee_handler, FeeRateLimiter},
+    base_fee::{get_base_fee_handler, BaseFeeHandler, FeeRateLimiter},
     constants::{
         fee::{FEE_DENOMINATOR, MAX_FEE_NUMERATOR},
-        MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, MAX_SWALLOW_PERCENTAGE, SWAP_BUFFER_PERCENTAGE,
+        MAX_CURVE_POINT_CONFIG, MAX_SQRT_PRICE, SWAP_BUFFER_PERCENTAGE,
     },
     params::{
         fee_parameters::PoolFeeParameters,
@@ -22,7 +22,7 @@ use crate::{
 
 use super::fee::{FeeOnAmountResult, VolatilityTracker};
 
-/// collect fee mode
+/// base fee mode
 #[repr(u8)]
 #[derive(
     Clone,
@@ -64,21 +64,51 @@ impl PoolFeesConfig {
     /// The total fee is capped at MAX_FEE_NUMERATOR (99%) to ensure reasonable trading costs.
     ///
     /// Returns the total fee numerator that will be used to calculate actual trading fees.
-    pub fn get_total_trading_fee(
+    pub fn get_total_fee_numerator_from_included_fee_amount(
         &self,
         volatility_tracker: &VolatilityTracker,
         current_point: u64,
         activation_point: u64,
-        amount: u64,
+        included_fee_amount: u64,
         trade_direction: TradeDirection,
     ) -> Result<u64> {
-        let base_fee_numerator = self.base_fee.get_base_fee_numerator(
+        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
+
+        let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_included_fee_amount(
             current_point,
             activation_point,
-            amount,
             trade_direction,
+            included_fee_amount,
         )?;
 
+        self.get_total_fee_numerator(base_fee_numerator, volatility_tracker)
+    }
+
+    pub fn get_total_fee_numerator_from_excluded_fee_amount(
+        &self,
+        volatility_tracker: &VolatilityTracker,
+        current_point: u64,
+        activation_point: u64,
+        excluded_fee_amount: u64,
+        trade_direction: TradeDirection,
+    ) -> Result<u64> {
+        let base_fee_handler = self.base_fee.get_base_fee_handler()?;
+
+        let base_fee_numerator = base_fee_handler.get_base_fee_numerator_from_excluded_fee_amount(
+            current_point,
+            activation_point,
+            trade_direction,
+            excluded_fee_amount,
+        )?;
+
+        self.get_total_fee_numerator(base_fee_numerator, volatility_tracker)
+    }
+
+    fn get_total_fee_numerator(
+        &self,
+        base_fee_numerator: u64,
+        volatility_tracker: &VolatilityTracker,
+    ) -> Result<u64> {
         let total_fee_numerator = self
             .dynamic_fee
             .get_variable_fee_numerator(volatility_tracker)?
@@ -98,25 +128,12 @@ impl PoolFeesConfig {
 
     pub fn get_fee_on_amount(
         &self,
-        volatility_tracker: &VolatilityTracker,
-        has_referral: bool,
+        trade_fee_numerator: u64,
         amount: u64,
-        current_point: u64,
-        activation_point: u64,
-        trade_direction: TradeDirection,
+        has_referral: bool,
     ) -> Result<FeeOnAmountResult> {
-        let trade_fee_numerator = self.get_total_trading_fee(
-            volatility_tracker,
-            current_point,
-            activation_point,
-            amount,
-            trade_direction,
-        )?;
-
-        let trading_fee: u64 =
-            safe_mul_div_cast_u64(amount, trade_fee_numerator, FEE_DENOMINATOR, Rounding::Up)?;
-        // update amount
-        let amount = amount.safe_sub(trading_fee)?;
+        let (amount, trading_fee) =
+            PoolFeesConfig::get_excluded_fee_amount(trade_fee_numerator, amount)?;
 
         let protocol_fee = safe_mul_div_cast_u64(
             trading_fee,
@@ -148,6 +165,62 @@ impl PoolFeesConfig {
             trading_fee,
             trade_fee_numerator,
         })
+    }
+
+    pub fn get_excluded_fee_amount(
+        trade_fee_numerator: u64,
+        included_fee_amount: u64,
+    ) -> Result<(u64, u64)> {
+        let trading_fee: u64 = safe_mul_div_cast_u64(
+            included_fee_amount,
+            trade_fee_numerator,
+            FEE_DENOMINATOR,
+            Rounding::Up,
+        )?;
+        // update amount
+        let excluded_fee_amount = included_fee_amount.safe_sub(trading_fee)?;
+        Ok((excluded_fee_amount, trading_fee))
+    }
+
+    pub fn get_included_fee_amount(
+        trade_fee_numerator: u64,
+        excluded_fee_amount: u64,
+    ) -> Result<(u64, u64)> {
+        let included_fee_amount: u64 = safe_mul_div_cast_u64(
+            excluded_fee_amount,
+            FEE_DENOMINATOR,
+            FEE_DENOMINATOR.safe_sub(trade_fee_numerator)?,
+            Rounding::Up,
+        )?;
+        let fee_amount = included_fee_amount.safe_sub(excluded_fee_amount)?;
+        Ok((included_fee_amount, fee_amount))
+    }
+
+    pub fn split_fees(&self, fee_amount: u64, has_referral: bool) -> Result<(u64, u64, u64)> {
+        let protocol_fee = safe_mul_div_cast_u64(
+            fee_amount,
+            self.protocol_fee_percent.into(),
+            100,
+            Rounding::Down,
+        )?;
+
+        // update trading fee
+        let trading_fee: u64 = fee_amount.safe_sub(protocol_fee)?;
+
+        let referral_fee = if has_referral {
+            safe_mul_div_cast_u64(
+                protocol_fee,
+                self.referral_fee_percent.into(),
+                100,
+                Rounding::Down,
+            )?
+        } else {
+            0
+        };
+
+        let protocol_fee = protocol_fee.safe_sub(referral_fee)?;
+
+        Ok((trading_fee, protocol_fee, referral_fee))
     }
 }
 
@@ -181,26 +254,33 @@ impl BaseFeeConfig {
             Err(PoolError::InvalidFeeRateLimiter.into())
         }
     }
-    pub fn get_base_fee_numerator(
-        &self,
-        current_point: u64,
-        activation_point: u64,
-        amount: u64,
-        trade_direction: TradeDirection,
-    ) -> Result<u64> {
-        let base_fee_handler = get_base_fee_handler(
+
+    pub fn get_base_fee_handler(&self) -> Result<Box<dyn BaseFeeHandler>> {
+        get_base_fee_handler(
             self.cliff_fee_numerator,
             self.first_factor,
             self.second_factor,
             self.third_factor,
             self.base_fee_mode,
-        )?;
-        base_fee_handler.get_base_fee_numerator(
-            current_point,
-            activation_point,
-            trade_direction,
-            amount,
         )
+    }
+
+    pub fn is_fee_rate_limiter_applied(&self, trade_fee_numerator: u64) -> Result<bool> {
+        let base_fee_mode =
+            BaseFeeMode::try_from(self.base_fee_mode).map_err(|_| PoolError::InvalidBaseFeeMode)?;
+
+        if base_fee_mode == BaseFeeMode::RateLimiter {
+            return Ok(trade_fee_numerator > self.cliff_fee_numerator);
+        }
+
+        Ok(false)
+    }
+
+    pub fn validate_min_base_fee(&self) -> Result<()> {
+        let base_fee_handler = self.get_base_fee_handler()?;
+        base_fee_handler.validate_min_base_fee()?;
+
+        Ok(())
     }
 }
 
@@ -239,7 +319,7 @@ impl DynamicFeeConfig {
             .volatility_accumulator
             .safe_mul(self.bin_step.into())?
             .checked_pow(2)
-            .ok_or(PoolError::MathOverflow)?;
+            .ok_or_else(|| PoolError::MathOverflow)?;
 
         // 2. Multiplying by the fee control factor
         let v_fee = square_vfa_bin.safe_mul(self.variable_fee_control.into())?;
@@ -288,10 +368,39 @@ impl LockedVestingConfig {
     AnchorSerialize,
     Default,
 )]
-pub enum TokenUpdateAuthorityOption {
+pub enum TokenAuthorityOption {
+    // Creator has permission to update update_authority
     #[default]
-    Mutable,
+    CreatorUpdateAuthority,
+    // No one has permission to update the authority
     Immutable,
+    // Partner has permission to update update_authority
+    PartnerUpdateAuthority,
+    // Creator has permission as mint_authority and update_authority
+    CreatorUpdateAndMintAuthority,
+    // Partner has permission as mint_authority and update_authority
+    PartnerUpdateAndMintAuthority,
+}
+
+impl TokenAuthorityOption {
+    pub fn get_update_authority(&self, creator: Pubkey, partner: Pubkey) -> Option<Pubkey> {
+        match *self {
+            TokenAuthorityOption::CreatorUpdateAndMintAuthority
+            | TokenAuthorityOption::CreatorUpdateAuthority => Some(creator),
+
+            TokenAuthorityOption::PartnerUpdateAndMintAuthority
+            | TokenAuthorityOption::PartnerUpdateAuthority => Some(partner),
+            TokenAuthorityOption::Immutable => None,
+        }
+    }
+
+    pub fn get_mint_authority(&self, creator: Pubkey, partner: Pubkey) -> Option<Pubkey> {
+        match *self {
+            TokenAuthorityOption::CreatorUpdateAndMintAuthority => Some(creator),
+            TokenAuthorityOption::PartnerUpdateAndMintAuthority => Some(partner),
+            _ => None,
+        }
+    }
 }
 
 #[repr(u8)]
@@ -338,12 +447,13 @@ pub enum TokenType {
     AnchorSerialize,
 )]
 pub enum MigrationFeeOption {
-    FixedBps25,  // 0.25%
-    FixedBps30,  // 0.3%
-    FixedBps100, // 1%
-    FixedBps200, // 2%
-    FixedBps400, // 4%
-    FixedBps600, // 6%
+    FixedBps25,   // 0.25% (0)
+    FixedBps30,   // 0.3%  (1)
+    FixedBps100,  // 1%    (2)
+    FixedBps200,  // 2%    (3)
+    FixedBps400,  // 4%    (4)
+    FixedBps600,  // 6%    (5)
+    Customizable, // Migration with customizable pool (6)
 }
 
 impl MigrationFeeOption {
@@ -366,6 +476,9 @@ impl MigrationFeeOption {
             }
             MigrationFeeOption::FixedBps600 => {
                 require!(base_fee_bps == 600, PoolError::InvalidMigrationFeeOption);
+            }
+            MigrationFeeOption::Customizable => {
+                // nothing to check
             }
         }
         Ok(())
@@ -417,8 +530,8 @@ pub struct PoolConfig {
     pub migration_fee_percentage: u8,
     /// creator migration fee percentage
     pub creator_migration_fee_percentage: u8,
-    /// padding 1
-    pub _padding_1: [u8; 7],
+    /// padding 0
+    pub _padding_0: [u8; 7],
     /// swap base amount
     pub swap_base_amount: u64,
     /// migration quote threshold (in quote token)
@@ -433,8 +546,16 @@ pub struct PoolConfig {
     pub pre_migration_token_supply: u64,
     /// post migration token supply
     pub post_migration_token_supply: u64,
+    /// migrated pool collect fee mode
+    pub migrated_collect_fee_mode: u8,
+    /// migrated dynamic fee option.
+    pub migrated_dynamic_fee: u8,
+    /// migrated pool fee in bps
+    pub migrated_pool_fee_bps: u16,
+    /// padding 1
+    pub _padding_1: [u8; 12],
     /// padding 2
-    pub _padding_2: [u128; 2],
+    pub _padding_2: u128,
     /// minimum price
     pub sqrt_start_price: u128,
     /// curve, only use 20 point firstly, we can extend that latter
@@ -491,6 +612,9 @@ impl PoolConfig {
         fixed_token_supply_flag: u8,
         pre_migration_token_supply: u64,
         post_migration_token_supply: u64,
+        migrated_pool_fee_bps: u16,
+        migrated_collect_fee_mode: u8,
+        migrated_dynamic_fee: u8,
         curve: &Vec<LiquidityDistributionParameters>,
     ) {
         self.version = 0;
@@ -525,17 +649,19 @@ impl PoolConfig {
         self.fixed_token_supply_flag = fixed_token_supply_flag;
         self.pre_migration_token_supply = pre_migration_token_supply;
         self.post_migration_token_supply = post_migration_token_supply;
+        self.migrated_pool_fee_bps = migrated_pool_fee_bps;
+        self.migrated_collect_fee_mode = migrated_collect_fee_mode;
+        self.migrated_dynamic_fee = migrated_dynamic_fee;
 
         for i in 0..curve.len() {
             self.curve[i] = curve[i].to_liquidity_distribution_config();
         }
     }
 
-    pub fn get_token_update_authority(&self) -> Result<TokenUpdateAuthorityOption> {
-        let token_update_authority =
-            TokenUpdateAuthorityOption::try_from(self.token_update_authority)
-                .map_err(|_| PoolError::InvalidTokenUpdateAuthorityOption)?;
-        Ok(token_update_authority)
+    pub fn get_token_authority(&self) -> Result<TokenAuthorityOption> {
+        let token_authority = TokenAuthorityOption::try_from(self.token_update_authority)
+            .map_err(|_| PoolError::InvalidTokenAuthorityOption)?;
+        Ok(token_authority)
     }
 
     pub fn get_migration_quote_amount_for_config(&self) -> Result<MigrationAmount> {
@@ -716,16 +842,6 @@ impl PoolConfig {
                 locked_liquidity: creator_locked_lp,
             },
         })
-    }
-
-    pub fn get_max_swallow_quote_amount(&self) -> Result<u64> {
-        let max_swallow_amount = safe_mul_div_cast_u64(
-            self.migration_quote_threshold,
-            MAX_SWALLOW_PERCENTAGE.into(),
-            100,
-            Rounding::Down,
-        )?;
-        Ok(max_swallow_amount)
     }
 
     pub fn split_partner_and_creator_fee(&self, fee: u64) -> Result<PartnerAndCreatorSplitFee> {

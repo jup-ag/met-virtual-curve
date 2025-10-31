@@ -30,7 +30,7 @@ declare_id!("dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN");
 pub mod dynamic_bonding_curve {
     use super::*;
 
-    /// ADMIN FUNCTIONS ///
+    /// ADMIN FUNCTIONS_ ///
     pub fn create_claim_fee_operator(ctx: Context<CreateClaimFeeOperatorCtx>) -> Result<()> {
         instructions::handle_create_claim_fee_operator(ctx)
     }
@@ -47,7 +47,17 @@ pub mod dynamic_bonding_curve {
         instructions::handle_protocol_withdraw_surplus(ctx)
     }
 
-    /// PARTNER FUNCTIONS ////
+    pub fn withdraw_lamports_from_pool_authority(
+        ctx: Context<WithdrawLamportsFromPoolAuthority>,
+    ) -> Result<()> {
+        instructions::handle_withdraw_lamports_from_pool_authority(ctx)
+    }
+
+    pub fn claim_pool_creation_fee(ctx: Context<ClaimCreationFeeCtx>) -> Result<()> {
+        instructions::handle_claim_pool_creation_fee(ctx)
+    }
+
+    /// PARTNER FUNCTIONS ///
     pub fn create_partner_metadata(
         ctx: Context<CreatePartnerMetadataCtx>,
         metadata: CreatePartnerMetadataParameters,
@@ -121,7 +131,19 @@ pub mod dynamic_bonding_curve {
 
     /// TRADING BOTS FUNCTIONS ////
     pub fn swap(ctx: Context<SwapCtx>, params: SwapParameters) -> Result<()> {
-        instructions::handle_swap(ctx, params)
+        instructions::handle_swap_wrapper(
+            ctx,
+            SwapParameters2 {
+                amount_0: params.amount_in,
+                amount_1: params.minimum_amount_out,
+                swap_mode: SwapMode::ExactIn.into(),
+                ..Default::default()
+            },
+        )
+    }
+
+    pub fn swap2(ctx: Context<SwapCtx>, params: SwapParameters2) -> Result<()> {
+        instructions::handle_swap_wrapper(ctx, params)
     }
 
     /// PERMISSIONLESS FUNCTIONS ///
@@ -161,6 +183,10 @@ pub mod dynamic_bonding_curve {
     }
 
     // migrate damm v2
+    #[deprecated(
+        since = "0.1.7",
+        note = "It's unneeded. Will be removed in next release version"
+    )]
     pub fn migration_damm_v2_create_metadata<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, MigrationDammV2CreateMetadataCtx<'info>>,
     ) -> Result<()> {

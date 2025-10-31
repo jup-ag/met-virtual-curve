@@ -116,8 +116,8 @@ pub enum PoolError {
     #[msg("Invalid new creator")]
     InvalidNewCreator,
 
-    #[msg("Invalid token update authority option")]
-    InvalidTokenUpdateAuthorityOption,
+    #[msg("Invalid token authority option")]
+    InvalidTokenAuthorityOption,
 
     #[msg("Invalid account for the instruction")]
     InvalidAccount,
@@ -136,4 +136,25 @@ pub enum PoolError {
 
     #[msg("Fail to validate single swap instruction in rate limiter")]
     FailToValidateSingleSwapInstruction,
+
+    #[msg("Invalid migrated pool fee params")]
+    InvalidMigratedPoolFee,
+
+    #[msg("Undertermined error")]
+    UndeterminedError,
+
+    #[msg("Rate limiter not supported")]
+    RateLimiterNotSupported,
+
+    #[msg("Amount left is not zero")]
+    AmountLeftIsNotZero,
+
+    #[msg("Next sqrt price is smaller than start sqrt price")]
+    NextSqrtPriceIsSmallerThanStartSqrtPrice,
+
+    #[msg("Invalid min base fee")]
+    InvalidMinBaseFee,
+
+    #[msg("Account invariant violation")]
+    AccountInvariantViolation,
 }

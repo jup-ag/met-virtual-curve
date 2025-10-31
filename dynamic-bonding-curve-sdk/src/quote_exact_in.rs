@@ -2,25 +2,25 @@ use anyhow::{ensure, Context, Result};
 use dynamic_bonding_curve::{
     activation_handler::ActivationType,
     params::swap::TradeDirection,
-    state::{fee::FeeMode, PoolConfig, SwapResult, VirtualPool},
+    state::{fee::FeeMode, PoolConfig, SwapResult2, VirtualPool},
 };
 use solana_sdk::pubkey::Pubkey;
 
 pub fn quote_exact_in(
-    virtual_pool: &VirtualPool,
+    pool: &VirtualPool,
     config: &PoolConfig,
     swap_base_for_quote: bool,
     current_timestamp: u64,
     current_slot: u64,
-    transfer_fee_excluded_amount_in: u64, // must be calculated from outside
+    in_amount: u64,
     has_referral: bool,
-) -> Result<SwapResult> {
+) -> Result<SwapResult2> {
     ensure!(
-        !virtual_pool.is_curve_complete(config.migration_quote_threshold),
+        !pool.is_curve_complete(config.migration_quote_threshold),
         "virtual pool is completed"
     );
 
-    ensure!(transfer_fee_excluded_amount_in > 0, "amount is zero");
+    ensure!(in_amount > 0, "amount is zero");
 
     let mut volatility_tracker = virtual_pool.volatility_tracker;
     if config.pool_fees.dynamic_fee.is_dynamic_fee_enable() {
@@ -44,7 +44,8 @@ pub fn quote_exact_in(
         TradeDirection::QuoteToBase
     };
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
-    let swap_result = virtual_pool.get_swap_result(
+
+    let swap_result = pool.get_swap_result_from_exact_input(
         config,
         transfer_fee_excluded_amount_in,
         fee_mode,

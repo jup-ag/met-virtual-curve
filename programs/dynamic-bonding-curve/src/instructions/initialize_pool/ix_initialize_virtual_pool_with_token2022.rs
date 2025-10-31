@@ -1,6 +1,7 @@
 use super::InitializePoolParameters;
 use super::{max_key, min_key};
-use crate::state::TokenUpdateAuthorityOption;
+use crate::constants::fee::TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE;
+use crate::state::CollectFeeMode;
 use crate::{
     activation_handler::get_current_point,
     const_pda,
@@ -11,11 +12,15 @@ use crate::{
     EvtInitializePool, PoolError,
 };
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::program::invoke;
+use anchor_lang::solana_program::system_instruction;
 use anchor_spl::token_2022::spl_token_2022::instruction::AuthorityType;
+use anchor_spl::token_interface::spl_pod::optional_keys::OptionalNonZeroPubkey;
 use anchor_spl::{
     token_2022::{mint_to, MintTo, Token2022},
     token_interface::{
-        token_metadata_initialize, Mint, TokenAccount, TokenInterface, TokenMetadataInitialize,
+        token_metadata_initialize, token_metadata_update_authority, Mint, TokenAccount,
+        TokenInterface, TokenMetadataInitialize,
     },
 };
 
@@ -116,6 +121,9 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     params: InitializePoolParameters,
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
+    // validate min base fee
+    config.pool_fees.base_fee.validate_min_base_fee()?;
+
     let token_type_value =
         TokenType::try_from(config.token_type).map_err(|_| PoolError::InvalidTokenType)?;
     require!(
@@ -142,6 +150,26 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     );
     token_metadata_initialize(cpi_ctx, name, symbol, uri)?;
 
+    let collect_fee_mode = CollectFeeMode::try_from(config.collect_fee_mode)
+        .map_err(|_| PoolError::InvalidCollectFeeMode)?;
+
+    let should_charge_creation_fee = collect_fee_mode == CollectFeeMode::OutputToken;
+
+    if should_charge_creation_fee {
+        invoke(
+            &system_instruction::transfer(
+                &ctx.accounts.payer.key(),
+                &ctx.accounts.pool.key(),
+                TOKEN_2022_POOL_WITH_OUTPUT_FEE_COLLECTION_CREATION_FEE,
+            ),
+            &[
+                ctx.accounts.payer.to_account_info(),
+                ctx.accounts.pool.to_account_info(),
+                ctx.accounts.system_program.to_account_info(),
+            ],
+        )?;
+    }
+
     // transfer minimum rent to mint account
     update_account_lamports_to_minimum_balance(
         ctx.accounts.base_mint.to_account_info(),
@@ -149,12 +177,11 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         ctx.accounts.system_program.to_account_info(),
     )?;
 
+    let token_authority = config.get_token_authority()?;
+
     let token_update_authority =
-        if config.get_token_update_authority()? == TokenUpdateAuthorityOption::Mutable {
-            Some(ctx.accounts.creator.key())
-        } else {
-            None
-        };
+        token_authority.get_update_authority(ctx.accounts.creator.key(), config.fee_claimer.key());
+
     anchor_spl::token_interface::set_authority(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
@@ -166,6 +193,27 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         ),
         AuthorityType::MetadataPointer,
         token_update_authority,
+    )?;
+
+    // update token metadata update authority
+    let new_update_token_metadata_authority =
+        OptionalNonZeroPubkey::try_from(token_update_authority)?;
+
+    token_metadata_update_authority(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token_interface::TokenMetadataUpdateAuthority {
+                program_id: ctx.accounts.token_program.to_account_info(),
+                metadata: ctx.accounts.base_mint.to_account_info(),
+                current_authority: ctx.accounts.creator.to_account_info(),
+                // new authority isn't actually needed as account in the CPI
+                // use current authority as system_program to satisfy the struct
+                // https://github.com/solana-developers/program-examples/blob/main/tokens/token-2022/metadata/anchor/programs/metadata/src/instructions/update_authority.rs
+                new_authority: ctx.accounts.system_program.to_account_info(),
+            },
+            &[&seeds[..]],
+        ),
+        new_update_token_metadata_authority,
     )?;
 
     let config = ctx.accounts.config.load()?;
@@ -186,7 +234,10 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         initial_base_supply,
     )?;
 
-    // remove mint authority
+    // update mint authority
+    let token_mint_authority =
+        token_authority.get_mint_authority(ctx.accounts.creator.key(), config.fee_claimer.key());
+
     anchor_spl::token_interface::set_authority(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
@@ -197,7 +248,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
             &[&seeds[..]],
         ),
         AuthorityType::MintTokens,
-        None,
+        token_mint_authority,
     )?;
 
     // init pool
@@ -216,6 +267,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         PoolType::Token2022.into(),
         activation_point,
         initial_base_supply,
+        should_charge_creation_fee,
     );
 
     emit_cpi!(EvtInitializePool {

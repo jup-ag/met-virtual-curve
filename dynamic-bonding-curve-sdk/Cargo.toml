@@ -14,3 +14,4 @@ name = "dynamic_bonding_curve_sdk"
 anyhow = "1.0.71"
 dynamic-bonding-curve = { path = "../programs/dynamic-bonding-curve", features = ["no-entrypoint"] }
 solana-sdk = "2.1.0"
+ruint =  { workspace = true }

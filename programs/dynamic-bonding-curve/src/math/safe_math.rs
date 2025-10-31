@@ -15,7 +15,7 @@ pub trait SafeMath<T>: Sized {
 macro_rules! checked_impl {
     ($t:ty, $offset:ty) => {
         impl SafeMath<$offset> for $t {
-            #[inline(always)]
+            #[track_caller]
             fn safe_add(self, v: $t) -> Result<$t, PoolError> {
                 match self.checked_add(v) {
                     Some(result) => Ok(result),
@@ -23,7 +23,7 @@ macro_rules! checked_impl {
                 }
             }
 
-            #[inline(always)]
+            #[track_caller]
             fn safe_sub(self, v: $t) -> Result<$t, PoolError> {
                 match self.checked_sub(v) {
                     Some(result) => Ok(result),
@@ -31,7 +31,7 @@ macro_rules! checked_impl {
                 }
             }
 
-            #[inline(always)]
+            #[track_caller]
             fn safe_mul(self, v: $t) -> Result<$t, PoolError> {
                 match self.checked_mul(v) {
                     Some(result) => Ok(result),
@@ -39,7 +39,7 @@ macro_rules! checked_impl {
                 }
             }
 
-            #[inline(always)]
+            #[track_caller]
             fn safe_div(self, v: $t) -> Result<$t, PoolError> {
                 match self.checked_div(v) {
                     Some(result) => Ok(result),
@@ -47,7 +47,7 @@ macro_rules! checked_impl {
                 }
             }
 
-            #[inline(always)]
+            #[track_caller]
             fn safe_rem(self, v: $t) -> Result<$t, PoolError> {
                 match self.checked_rem(v) {
                     Some(result) => Ok(result),
@@ -55,7 +55,7 @@ macro_rules! checked_impl {
                 }
             }
 
-            #[inline(always)]
+            #[track_caller]
             fn safe_shl(self, v: $offset) -> Result<$t, PoolError> {
                 match self.checked_shl(v) {
                     Some(result) => Ok(result),
@@ -63,7 +63,7 @@ macro_rules! checked_impl {
                 }
             }
 
-            #[inline(always)]
+            #[track_caller]
             fn safe_shr(self, v: $offset) -> Result<$t, PoolError> {
                 match self.checked_shr(v) {
                     Some(result) => Ok(result),
