@@ -1019,6 +1019,7 @@ dependencies = [
  "anyhow",
  "bytemuck",
  "dynamic-bonding-curve",
+ "ruint",
  "solana-sdk",
 ]
 

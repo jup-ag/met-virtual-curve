@@ -228,6 +228,7 @@ impl VirtualPool {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
+        let mut actual_fee_numerator = 0;
 
         let included_fee_out_amount = if fee_mode.fees_on_input {
             amount_out
@@ -243,6 +244,8 @@ impl VirtualPool {
                 )?;
             let (included_fee_out_amount, fee_amount) =
                 PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, amount_out)?;
+
+            actual_fee_numerator = trade_fee_numerator;
 
             // that ensure included_fee_out_amount = amount_out + trading_fee + protocol_fee + referral_fee
             let (trading_fee, protocol_fee, referral_fee) = config
@@ -283,6 +286,8 @@ impl VirtualPool {
                     trade_direction,
                 )?;
 
+            actual_fee_numerator = trade_fee_numerator;
+
             let (included_fee_in_amount, fee_amount) =
                 PoolFeesConfig::get_included_fee_amount(trade_fee_numerator, amount_in)?;
 
@@ -308,6 +313,7 @@ impl VirtualPool {
             trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
+            fee_numerator: actual_fee_numerator,
         })
     }
 
@@ -469,14 +475,13 @@ impl VirtualPool {
         let mut actual_protocol_fee = 0;
         let mut actual_trading_fee = 0;
         let mut actual_referral_fee = 0;
-        let mut actual_trade_fee_numerator = 0;
 
         let trade_fee_numerator = config
             .pool_fees
             .get_total_fee_numerator_from_included_fee_amount(
                 &volatility_tracker,
                 current_point,
-                self.activation_point,
+                activation_point,
                 amount_in,
                 trade_direction,
             )?;
@@ -487,7 +492,6 @@ impl VirtualPool {
                 protocol_fee,
                 trading_fee,
                 referral_fee,
-                trade_fee_numerator,
             } = config.pool_fees.get_fee_on_amount(
                 trade_fee_numerator,
                 amount_in,
@@ -497,7 +501,6 @@ impl VirtualPool {
             actual_protocol_fee = protocol_fee;
             actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
-            actual_trade_fee_numerator = trade_fee_numerator;
 
             amount
         } else {
@@ -529,7 +532,6 @@ impl VirtualPool {
                 protocol_fee,
                 trading_fee,
                 referral_fee,
-                trade_fee_numerator,
             } = config.pool_fees.get_fee_on_amount(
                 trade_fee_numerator,
                 output_amount,
@@ -552,6 +554,7 @@ impl VirtualPool {
             trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
+            fee_numerator: trade_fee_numerator,
         })
     }
 
@@ -663,7 +666,6 @@ impl VirtualPool {
             actual_protocol_fee = protocol_fee;
             actual_trading_fee = trading_fee;
             actual_referral_fee = referral_fee;
-            actual_trade_fee_numerator = trade_fee_numerator;
 
             amount
         };
@@ -677,7 +679,7 @@ impl VirtualPool {
             trading_fee: actual_trading_fee,
             protocol_fee: actual_protocol_fee,
             referral_fee: actual_referral_fee,
-            fee_numerator: actual_trade_fee_numerator,
+            fee_numerator: trade_fee_numerator,
         })
     }
 
@@ -1108,6 +1110,7 @@ pub struct SwapResult2 {
     pub trading_fee: u64,
     pub protocol_fee: u64,
     pub referral_fee: u64,
+    pub fee_numerator: u64,
 }
 
 impl SwapResult2 {
@@ -1119,6 +1122,7 @@ impl SwapResult2 {
             trading_fee: self.trading_fee,
             protocol_fee: self.protocol_fee,
             referral_fee: self.referral_fee,
+            fee_numerator: self.fee_numerator,
         }
     }
 }

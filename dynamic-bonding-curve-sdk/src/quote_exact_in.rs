@@ -7,20 +7,20 @@ use dynamic_bonding_curve::{
 use solana_sdk::pubkey::Pubkey;
 
 pub fn quote_exact_in(
-    pool: &VirtualPool,
+    virtual_pool: &VirtualPool,
     config: &PoolConfig,
     swap_base_for_quote: bool,
     current_timestamp: u64,
     current_slot: u64,
-    in_amount: u64,
+    transfer_fee_excluded_amount_in: u64, // must be calculated from outside
     has_referral: bool,
 ) -> Result<SwapResult2> {
     ensure!(
-        !pool.is_curve_complete(config.migration_quote_threshold),
+        !virtual_pool.is_curve_complete(config.migration_quote_threshold),
         "virtual pool is completed"
     );
 
-    ensure!(in_amount > 0, "amount is zero");
+    ensure!(transfer_fee_excluded_amount_in > 0, "amount is zero");
 
     let mut volatility_tracker = virtual_pool.volatility_tracker;
     if config.pool_fees.dynamic_fee.is_dynamic_fee_enable() {
@@ -45,7 +45,7 @@ pub fn quote_exact_in(
     };
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
 
-    let swap_result = pool.get_swap_result_from_exact_input(
+    let swap_result = virtual_pool.get_swap_result_from_exact_input(
         config,
         transfer_fee_excluded_amount_in,
         fee_mode,

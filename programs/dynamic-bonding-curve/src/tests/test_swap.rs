@@ -109,6 +109,7 @@ impl UserBalance {
             trading_fee: _,
             protocol_fee: _,
             referral_fee: _,
+            ..
         } = swap_result;
         if trade_direction == TradeDirection::BaseToQuote {
             self.base_balance = self
@@ -142,6 +143,8 @@ fn simulate_swap_exact_in(
             &fee_mode,
             trade_direction,
             current_timestamp,
+            pool.activation_point,
+            &pool.volatility_tracker,
         )
         .unwrap();
 

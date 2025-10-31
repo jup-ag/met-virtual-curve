@@ -22,6 +22,8 @@ pub fn process_swap_exact_in(params: ProcessSwapParams<'_>) -> Result<ProcessSwa
         fee_mode,
         trade_direction,
         current_point,
+        pool.activation_point,
+        &pool.volatility_tracker,
     )?;
 
     require!(
