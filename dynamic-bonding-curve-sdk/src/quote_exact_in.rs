@@ -4,7 +4,7 @@ use dynamic_bonding_curve::{
     params::swap::TradeDirection,
     state::{fee::FeeMode, PoolConfig, SwapResult2, VirtualPool},
 };
-use solana_sdk::pubkey::Pubkey;
+use solana_pubkey::Pubkey;
 
 pub fn quote_exact_in(
     virtual_pool: &VirtualPool,
@@ -81,5 +81,5 @@ pub fn get_fee_mint(
         config.quote_mint // Quote mint is stored in the config
     };
 
-    Ok(fee_mint)
+    Ok(Pubkey::from(fee_mint.to_bytes()))
 }

@@ -239,7 +239,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                         };
                         damm_v2::cpi::initialize_pool_with_dynamic_config(
                             CpiContext::new_with_signer(
-                                self.amm_program.to_account_info(),
+                                self.amm_program.key(),
                                 damm_v2::cpi::accounts::InitializePoolWithDynamicConfig {
                                     creator: self.pool_authority.to_account_info(),
                                     position_nft_mint: self
@@ -274,7 +274,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                     } else {
                         damm_v2::cpi::initialize_pool(
                             CpiContext::new_with_signer(
-                                self.amm_program.to_account_info(),
+                                self.amm_program.key(),
                                 damm_v2::cpi::accounts::InitializePool {
                                     creator: self.pool_authority.to_account_info(),
                                     position_nft_mint: self
@@ -332,7 +332,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
             || {
                 damm_v2::cpi::permanent_lock_position(
                     CpiContext::new_with_signer(
-                        self.amm_program.to_account_info(),
+                        self.amm_program.key(),
                         damm_v2::cpi::accounts::PermanentLockPosition {
                             pool: self.pool.to_account_info(),
                             position: self.first_position.to_account_info(),
@@ -355,7 +355,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
         set_authority(
             CpiContext::new_with_signer(
-                self.token_2022_program.to_account_info(),
+                self.token_2022_program.key(),
                 SetAuthority {
                     current_authority: self.pool_authority.to_account_info(),
                     account_or_mint: self.first_position_nft_account.to_account_info(),
@@ -376,8 +376,8 @@ impl<'info> MigrateDammV2Ctx<'info> {
     ) -> Result<()> {
         let pool_authority_seeds = pool_authority_seeds!(bump);
         msg!("create position");
-        damm_v2::cpi::create_position(CpiContext::new(
-            self.amm_program.to_account_info(),
+        damm_v2::cpi::create_position(CpiContext::new_with_signer(
+            self.amm_program.key(),
             damm_v2::cpi::accounts::CreatePosition {
                 owner: self.pool_authority.to_account_info(),
                 pool: self.pool.to_account_info(),
@@ -399,6 +399,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 event_authority: self.damm_event_authority.to_account_info(),
                 program: self.amm_program.to_account_info(),
             },
+            &[&pool_authority_seeds[..]],
         ))?;
 
         msg!("add liquidity");
@@ -407,7 +408,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
             || {
                 damm_v2::cpi::add_liquidity(
                     CpiContext::new_with_signer(
-                        self.amm_program.to_account_info(),
+                        self.amm_program.key(),
                         damm_v2::cpi::accounts::AddLiquidity {
                             pool: self.pool.to_account_info(),
                             position: self.second_position.clone().unwrap().to_account_info(),
@@ -446,7 +447,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
                 || {
                     damm_v2::cpi::permanent_lock_position(
                         CpiContext::new_with_signer(
-                            self.amm_program.to_account_info(),
+                            self.amm_program.key(),
                             damm_v2::cpi::accounts::PermanentLockPosition {
                                 pool: self.pool.to_account_info(),
                                 position: self.second_position.clone().unwrap().to_account_info(),
@@ -471,7 +472,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
         msg!("set authority");
         set_authority(
             CpiContext::new_with_signer(
-                self.token_2022_program.to_account_info(),
+                self.token_2022_program.key(),
                 SetAuthority {
                     current_authority: self.pool_authority.to_account_info(),
                     account_or_mint: self
@@ -490,9 +491,7 @@ impl<'info> MigrateDammV2Ctx<'info> {
     }
 }
 
-pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, MigrateDammV2Ctx<'info>>,
-) -> Result<()> {
+pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>>) -> Result<()> {
     let config = ctx.accounts.config.load()?;
     let migration_fee_option = MigrationFeeOption::try_from(config.migration_fee_option)
         .map_err(|_| PoolError::InvalidMigrationFeeOption)?;
@@ -643,7 +642,7 @@ pub fn handle_migrate_damm_v2<'c: 'info, 'info>(
         let seeds = pool_authority_seeds!(const_pda::pool_authority::BUMP);
         anchor_spl::token_interface::burn(
             CpiContext::new_with_signer(
-                ctx.accounts.token_base_program.to_account_info(),
+                ctx.accounts.token_base_program.key(),
                 anchor_spl::token_interface::Burn {
                     mint: ctx.accounts.base_mint.to_account_info(),
                     from: ctx.accounts.base_vault.to_account_info(),

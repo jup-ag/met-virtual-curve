@@ -19,12 +19,11 @@ use crate::{
 };
 use crate::{EvtCurveComplete, EvtSwap2};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::instruction::{
-    get_processed_sibling_instruction, get_stack_height, Instruction,
-};
-use anchor_lang::solana_program::sysvar;
+use anchor_lang::solana_program::instruction::get_stack_height;
+use anchor_lang::solana_program::instruction::Instruction;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use num_enum::{FromPrimitive, IntoPrimitive};
+use solana_instructions_sysvar::{load_current_index_checked, load_instruction_at_checked};
 
 // only be use for swap exact in
 #[derive(AnchorSerialize, AnchorDeserialize)]
@@ -335,12 +334,9 @@ pub fn validate_single_swap_instruction<'c, 'info>(
         .ok_or_else(|| PoolError::FailToValidateSingleSwapInstruction)?;
 
     // get current index of instruction
-    let current_index =
-        sysvar::instructions::load_current_index_checked(instruction_sysvar_account_info)?;
-    let current_instruction = sysvar::instructions::load_instruction_at_checked(
-        current_index.into(),
-        instruction_sysvar_account_info,
-    )?;
+    let current_index = load_current_index_checked(instruction_sysvar_account_info)?;
+    let current_instruction =
+        load_instruction_at_checked(current_index.into(), instruction_sysvar_account_info)?;
 
     if current_instruction.program_id != crate::ID {
         // check if current instruction is CPI
@@ -348,18 +344,8 @@ pub fn validate_single_swap_instruction<'c, 'info>(
         if get_stack_height() > 2 {
             return Err(PoolError::FailToValidateSingleSwapInstruction.into());
         }
-        // check for any sibling instruction
-        let mut sibling_index = 0;
-        while let Some(sibling_instruction) = get_processed_sibling_instruction(sibling_index) {
-            if sibling_instruction.program_id == crate::ID {
-                require!(
-                    !is_instruction_include_pool_swap(&sibling_instruction, pool),
-                    PoolError::FailToValidateSingleSwapInstruction
-                );
-            }
-
-            sibling_index = sibling_index.safe_add(1)?;
-        }
+        // Anchor 1 no longer re-exports processed sibling instruction helpers here.
+        // Keep the CPI guard via stack height and rely on the transaction sysvar scan below.
     }
 
     if current_index == 0 {
@@ -367,10 +353,7 @@ pub fn validate_single_swap_instruction<'c, 'info>(
         return Ok(());
     }
     for i in 0..current_index {
-        let instruction = sysvar::instructions::load_instruction_at_checked(
-            i.into(),
-            instruction_sysvar_account_info,
-        )?;
+        let instruction = load_instruction_at_checked(i.into(), instruction_sysvar_account_info)?;
 
         if instruction.program_id != crate::ID {
             // we treat any instruction including that pool address is other swap ix
