@@ -29,7 +29,7 @@ num_enum = "0.7.0"
 num = "0.4.3"
 mpl-token-metadata = "=5.1.2-alpha.2"
 spl-token-metadata-interface = "0.8"
-solana-instructions-sysvar = "3.0.0"
+solana-instructions-sysvar = "4.0.0"
 dynamic-amm = { path = "../../libs/dynamic-amm" }
 damm-v2 = { path = "../../libs/damm-v2" }
 locker = { path = "../../libs/locker" }
